@@ -21,7 +21,7 @@ print_header () {
 }
 
 ucc () {
-    cc -lbsd $* -Wall -Wextra -Werror && ./a.out && rm ./a.out & pid=$!;
+	cc -lbsd $* -Wall -Wextra -Werror && ./a.out && rm ./a.out & pid=$!;
 	# Timeout for infinite loops
 	for i in {1..55}; do
 		read -n 1 -p "" -t 0.1 should_kill;
@@ -148,7 +148,7 @@ rr () {
     recursive_run
 }
 
-function add_42 {
+add_42 () {
 	for var in $(find . -name "*.c";)
 	do
         var=$(basename $var)
@@ -162,3 +162,55 @@ function add_42 {
 	done
 }
 
+
+
+
+
+# New stuff
+
+# Workspace oriented (one file per folder)
+#		A workspace is usefull in a directory in which the same commands are often used
+#		A workspace directory contains a .rr_array file with the commands
+
+save_rerun()
+{
+	# Assumes current directory is workspace
+	printf "%s\n" "${rr_array[@]}" > .rr_array
+}
+
+option_keys=("a" "s" "d" "f" "g" "h" "j" "k" "l")
+selected_option=""
+
+handle_options()
+{
+	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
+	do
+		j=$((i+1))
+		echo "${option_keys[i]}) ${!j}"
+	done
+	# get user input
+	read -n 1 -p ")" user_input
+	# handle user input
+	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
+	do
+		j=$((i+1))
+		if [[ "${option_keys[i]})" ]];
+		then
+			selected_option=${!j}
+		fi
+	done
+	echo ""
+	echo "options handled"
+}
+
+rerun()
+{
+	echo "Running"
+	mapfile -t rr_array < <(find ~ -name .easyrun -exec dirname {} \;)
+	handle_options "${rr_array[@]}"
+	echo "\nSo you've chosen ${user_input}";
+}
+
+rerun
+
+# End by Jules
