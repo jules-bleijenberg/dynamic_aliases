@@ -1,0 +1,2 @@
+# Add following to .bashrc or .zshrc
+alias er=~/jb_rerun/main.sh
