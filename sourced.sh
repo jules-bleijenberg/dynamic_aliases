@@ -131,7 +131,7 @@ recursive_run () {
   recursive_run
 }
 
-rr () {
+er () {
     # Program options
     while getopts $rr_options option;
     do
@@ -139,11 +139,11 @@ rr () {
             c) # Don't clear | c stands for unclear or useless considering I'll never use it :] 
                 is_clearing=0;;
             u)
-								mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
+								/usr/bin/bash mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
         esac
     done
 		if [[ -z $rerun_items ]]; then
-				mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
+				/usr/bin/bash mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
 		fi
     recursive_run
 }
@@ -151,72 +151,14 @@ rr () {
 add_42 () {
 	for var in $(find . -name "*.c";)
 	do
-        var=$(basename $var)
-		if ! grep -q "jbleijen <jbleijen@student.42.fr>" $var; then
+		var=$(basename $var)
+		if ! grep -q "jbleijen <jbleijen@student.42.fr>" $var;
+		then
 			head -c 248 ~/.header_file > /tmp/tmp_header_file
 			echo -n "$var" >> /tmp/tmp_header_file
 			tail -c $((644 - ${#var})) ~/.header_file >> /tmp/tmp_header_file
-            cat $var >> /tmp/tmp_header_file
-            cp /tmp/tmp_header_file $var
+				cat $var >> /tmp/tmp_header_file
+				cp /tmp/tmp_header_file $var
 		fi
 	done
 }
-
-
-
-
-
-# New stuff
-
-# Workspace oriented (one file per folder)
-#		A workspace is usefull in a directory in which the same commands are often used
-#		A workspace directory contains a .rr_array file with the commands
-
-save_rerun()
-{
-	# Assumes current directory is workspace
-	printf "%s\n" "${rr_array[@]}" > .rr_array
-}
-
-option_keys=("a" "s" "d" "f" "g" "h" "j" "k" "l")
-selected_option="INVALID"
-
-handle_options()
-{
-	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
-	do
-		j=$((i+1))
-		echo "${option_keys[i]}) ${!j}"
-	done
-	# get user input
-	read -n 1 -p ")" user_input
-	# handle user input
-	selected_option="INVALID"
-	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
-	do
-		j=$((i+1))
-		if [[ "${option_keys[i]}" = "${user_input}" ]];
-		then
-			selected_option=${!j}
-			break
-		fi
-	done
-	echo ""
-	echo "options handled"
-}
-
-rerun()
-{
-	echo "Running"
-	mapfile -t rr_array < <(find ~ -name .easyrun -exec dirname {} \;)
-	handle_options "${rr_array[@]}"
-	if [[ ! "${selected_option}" = "INVALID" ]];
-	then
-		cd ${selected_option}
-		echo "Changed directory to ${selected_option}"
-	fi
-}
-
-rerun
-
-# End by Jules
