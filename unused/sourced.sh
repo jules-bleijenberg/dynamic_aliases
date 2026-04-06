@@ -139,11 +139,11 @@ er () {
             c) # Don't clear | c stands for unclear or useless considering I'll never use it :] 
                 is_clearing=0;;
             u)
-								/usr/bin/bash mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
+								mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
         esac
     done
 		if [[ -z $rerun_items ]]; then
-				/usr/bin/bash mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
+				mapfile -t rerun_items < <(history 50 | tac - | cut -c 8- | uniq -u - | grep --invert-match --max-count 9 ^rr)
 		fi
     recursive_run
 }

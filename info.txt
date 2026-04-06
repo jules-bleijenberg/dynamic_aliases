@@ -1,0 +1,10 @@
+#program
+Set and unset aliases
+
+# Directories
+~/termy/directories.csv (used to story all dir + commands)
+/c\d/
+
+# Commands
+set when change of directory with termy
+/r\d/
