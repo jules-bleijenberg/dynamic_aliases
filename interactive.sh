@@ -23,8 +23,71 @@ print_header () {
 #		A workspace directory contains a .rr_array file with the commands
 
 option_keys=("a" "s" "d" "f" "g" "h" "j" "k" "l")
+alias_keys=( "a" "s" "d" "f" "j" "k" "l" )
+max_len=0
 selected_option="INVALID"
 selected_option_key=" "
+
+set_aliases()
+{
+	# remove aliases of deleted elements
+  for (( i = 0; i < max_len; i++ )); do
+		alias_key=${alias_keys[$i]}
+		remove_alias_key=${alias_keys[$i]}_r
+		unalias "$alias_key"
+		unalias "$remove_alias_key"
+  done
+	# get max alias size
+	if [[ ${#rr_array[@]} -le ${#alias_keys[@]} ]]; then
+		max_len=${#rr_array[@]}
+	else
+		max_len=${#alias_keys[@]}
+	fi
+  # print_line "max size ${max_len}";
+  for (( i = 0; i < max_len; i++ )); do
+		alias_key=${alias_keys[$i]}
+		remove_alias_key=${alias_keys[$i]}_r
+    print_line "${OPT_LEFT_COLOR}$alias_key) ${NO_COLOR}${rr_array[$i]}";
+		alias "$alias_key=${rr_array[$i]}"
+		alias "$remove_alias_key=remove_alias $i"
+  done
+}
+
+load_aliases()
+{
+	if [[ ! -s $PWD/.rr_array ]]
+	then
+		print_line "${OPT_COLOR}.rr file not found";
+		return
+	fi
+  mapfile -t rr_array < <(cat $PWD/.rr_array)
+	set_aliases
+}
+
+add_alias()
+{
+	last_executed_command=$(fc -ln -2 | head -1 | cut -d " " -f 2-)
+	# alias rj=$(fc -ln -2 | head -1 | cut -d " " -f 2-)
+	rr_array=("${rr_array[@]}" "${last_executed_command}")
+	#	rr_array=("${last_executed_command}" "${rr_array[@]:0:8}")
+	set_aliases
+	save_workspace
+}
+
+remove_alias()
+{
+	if [[ $1 -le $max_len ]]; then
+		for i in "${!rr_array[@]}"; do
+			if [[ $1 -ne $i ]]; then
+				new_rr_array+=( "${rr_array[i]}" )
+			fi
+		done
+		rr_array=("${new_rr_array[@]}")
+		unset new_rr_array
+		set_aliases
+		save_workspace
+	fi
+}
 
 handle_options()
 {
@@ -58,6 +121,7 @@ handle_options()
 	done
 	echo ""
 	echo "options handled"
+	echo ""
 }
 
 run_and_print_command ()
@@ -171,7 +235,8 @@ change_workspace()
 			print_line "Current directory $PWD"
 			;;
 	esac
-	load_workspace
+	load_aliases
+	# load_workspace
 }
 
 create_workspace()
@@ -216,7 +281,7 @@ swap_commands () {
 	clear
 }
 
-rr () {
+ram () {
 	if [[ -s $PWD/.rr_array ]]
 	then
     load_workspace
@@ -224,6 +289,18 @@ rr () {
 		change_workspace
 	fi
 }
+
+r () {
+	change_workspace
+#	if [[ -s $PWD/.rr_array ]]
+#	then
+#    load_workspace
+#	else
+#		change_workspace
+#	fi
+}
+
+alias ra=add_alias
 
 mapfile -t rr_dir_array < <(cat ~/.jb_rerun/data)
 (find ~ -name .rr_array -exec dirname {} \; > ~/.jb_rerun/data&)

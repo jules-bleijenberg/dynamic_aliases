@@ -1,10 +1,33 @@
 #program
 Set and unset aliases
 
-# Directories
-~/termy/directories.csv (used to story all dir + commands)
-/c\d/
+# Change directories
+~/termy/data (storage)
+command: r [partial name / fuzzy find]
 
-# Commands
+# Commands (aliases)
 set when change of directory with termy
-/r\d/
+command: /r\w/
+add last executed command: ra
+
+
+
+# options
+last 50 used items stored in array (lot of data)
+score and time system
+
+# Frecently algorithm
+
+item data
+- last_used_time
+- score
+when used
+- score multiplier within ranges?
+if score < 300 && last_used_time < 1 hour
+	score += 100
+else
+	score += 20
+- last_used_time updated to now
+when loaded
+- score updated
+- score = score 
