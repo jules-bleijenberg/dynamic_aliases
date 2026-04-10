@@ -43,7 +43,7 @@ set_aliases()
 	else
 		max_len=${#alias_keys[@]}
 	fi
-  # print_line "max size ${max_len}";
+	# set aliases and print them
   for (( i = 0; i < max_len; i++ )); do
 		alias_key=${alias_keys[$i]}
 		remove_alias_key=${alias_keys[$i]}_r
@@ -55,28 +55,40 @@ set_aliases()
 
 load_aliases()
 {
+	# check if there are commands stored in pwd dir
 	if [[ ! -s $PWD/.rr_array ]]
 	then
 		print_line "${OPT_COLOR}.rr file not found";
 		return
 	fi
+	# load commands into array
   mapfile -t rr_array < <(cat $PWD/.rr_array)
 	set_aliases
 }
 
 add_alias()
 {
+	# get last executed command
 	last_executed_command=$(fc -ln -2 | head -1 | cut -d " " -f 2-)
-	# alias rj=$(fc -ln -2 | head -1 | cut -d " " -f 2-)
-	rr_array=("${rr_array[@]}" "${last_executed_command}")
+	# check if .rr_array file exists in pwd dir
+	if [[ -s $PWD/.rr_array ]]
+	then
+		# append last executed command
+		rr_array=("${rr_array[@]}" "${last_executed_command}")
+	else
+		# create new rr_array
+		rr_array=("${last_executed_command}")
+	fi
 	#	rr_array=("${last_executed_command}" "${rr_array[@]:0:8}")
+	# reload aliases
 	set_aliases
 	save_workspace
 }
 
 remove_alias()
 {
-	if [[ $1 -le $max_len ]]; then
+	# if param is valid array index remove it
+	if [[ $1 -lt $max_len && $1 -ge 0 ]]; then
 		for i in "${!rr_array[@]}"; do
 			if [[ $1 -ne $i ]]; then
 				new_rr_array+=( "${rr_array[i]}" )
@@ -190,7 +202,12 @@ load_workspace()
 save_workspace()
 {
 	# Assumes current directory is workspace
-	printf "%s\n" "${rr_array[@]}" > .rr_array
+	if [[ ${#rr_array[@]} -gt 0 ]];
+	then
+		printf "%s\n" "${rr_array[@]}" > .rr_array
+	else
+		rm .rr_array
+	fi
 }
 
 change_workspace()
@@ -281,25 +298,7 @@ swap_commands () {
 	clear
 }
 
-ram () {
-	if [[ -s $PWD/.rr_array ]]
-	then
-    load_workspace
-	else
-		change_workspace
-	fi
-}
-
-r () {
-	change_workspace
-#	if [[ -s $PWD/.rr_array ]]
-#	then
-#    load_workspace
-#	else
-#		change_workspace
-#	fi
-}
-
+alias r=change_workspace
 alias ra=add_alias
 
 mapfile -t rr_dir_array < <(cat ~/.jb_rerun/data)
