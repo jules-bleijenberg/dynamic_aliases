@@ -28,6 +28,39 @@ max_len=0
 selected_option="INVALID"
 selected_option_key=" "
 
+handle_options()
+{
+	# print options
+	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
+	do
+		j=$((i+1))
+		#echo "${option_keys[i]}) ${!j}"
+		printf "${GREEN}${option_keys[i]}) ${NO_COLOR}${!j}\n";
+	done
+	# get user input
+	print_header "Your Choice"
+	read -n 1 -p ">" user_input
+	# handle user input
+	selected_option_key=${user_input}
+	selected_option="INVALID"
+	if [[ "${user_input}" = "q" ]];
+	then
+		print_line "${GREEN}Terminated successfully${NO_COLOR}"
+		selected_option="EXIT"
+		return
+	fi
+	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
+	do
+		j=$((i+1))
+		if [[ "${option_keys[i]}" = "${user_input}" ]];
+		then
+			selected_option=${!j}
+			break
+		fi
+	done
+	echo ""
+}
+
 set_aliases()
 {
 	# remove aliases of deleted elements
@@ -77,6 +110,7 @@ add_alias()
 		rr_array=("${rr_array[@]}" "${last_executed_command}")
 	else
 		# create new rr_array
+		print_line "${GREEN}Created workspace${NO_COLOR}"
 		rr_array=("${last_executed_command}")
 	fi
 	#	rr_array=("${last_executed_command}" "${rr_array[@]:0:8}")
@@ -101,93 +135,6 @@ remove_alias()
 	fi
 }
 
-handle_options()
-{
-	# print options
-	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
-	do
-		j=$((i+1))
-		#echo "${option_keys[i]}) ${!j}"
-		printf "${GREEN}${option_keys[i]}) ${NO_COLOR}${!j}\n";
-	done
-	# get user input
-	print_header "Your Choice"
-	read -n 1 -p ">" user_input
-	# handle user input
-	selected_option_key=${user_input}
-	selected_option="INVALID"
-	if [[ "${user_input}" = "q" ]];
-	then
-		print_line "${GREEN}Terminated successfully${NO_COLOR}"
-		selected_option="EXIT"
-		return
-	fi
-	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
-	do
-		j=$((i+1))
-		if [[ "${option_keys[i]}" = "${user_input}" ]];
-		then
-			selected_option=${!j}
-			break
-		fi
-	done
-	echo ""
-	echo "options handled"
-	echo ""
-}
-
-run_and_print_command ()
-{
-	clear;
-	print_header "Command"
-	print_line "$1"
-	print_header "Output"
-	eval "$1"
-}
-
-recursive_run () {
-	print_header "Commands"
-	handle_options "${rr_array[@]}"
-  case $selected_option in
-		"EXIT")
-			return
-  		;;
-		"INVALID")
-	    case $selected_option_key in
-				w)
-					save_workspace
-	  			clear
-	  			;;
-				e)
-	        print_line "${GREEN}Adding command${NO_COLOR}"
-					read -e -p ">" command_to_execute;
-					if [[ -n $command_to_execute ]]; then
-							run_and_print_command "${command_to_execute}"
-						  history -s "${command_to_execute}"
-							rr_array=("${command_to_execute}" "${rr_array[@]:0:8}")
-					else
-							clear
-					fi
-					;;
-				r)
-					swap_commands
-					;;
-				t)
-	  			clear
-	  			;;
-				c)
-					change_workspace
-	  			return
-					;;
-				esac
-  		;;
-		*)
-			run_and_print_command "${selected_option}"
-  		;;
-	esac
-  recursive_run
-}
-
 load_workspace()
 {
 	# check if file exists
@@ -207,11 +154,23 @@ save_workspace()
 		printf "%s\n" "${rr_array[@]}" > .rr_array
 	else
 		rm .rr_array
+		print_line "${RED}Removed workspace${NO_COLOR}"
 	fi
 }
 
 change_workspace()
 {
+	if [[ $# -gt 0 ]]; then
+		for i in "${!rr_dir_array[@]}"; do
+			if [[ ${rr_dir_array[$i]} == *"$1"* ]]; then
+				echo ${rr_dir_array[$i]}
+				cd ${rr_dir_array[$i]}
+				load_aliases
+				return
+			fi
+		done
+		print_line "${NO_COLOR}$1 not found${NO_COLOR}"
+	fi
 	print_header "Select Workspace"
 	handle_options "${rr_dir_array[@]}"
 	case $selected_option in
@@ -220,21 +179,6 @@ change_workspace()
   		;;
 		"INVALID")
 	    case $selected_option_key in
-				w)
-					save_workspace
-	  			clear
-	  			;;
-				e)
-	        print_line "${GREEN}Adding command${NO_COLOR}"
-					read -e -p ">" command_to_execute;
-					if [[ -n $command_to_execute ]]; then
-							run_and_print_command "${command_to_execute}"
-						  history -s "${command_to_execute}"
-							rr_array=("${command_to_execute}" "${rr_array[@]:0:8}")
-					else
-							clear
-					fi
-					;;
 				r)
 					swap_commands
 					;;
