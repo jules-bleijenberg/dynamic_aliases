@@ -242,8 +242,27 @@ swap_commands () {
 	clear
 }
 
+last_run_data_path=~/.jb_rerun/last_run_data
+
+on_start () {
+	mapfile -t rr_dir_array < <(cat ~/.jb_rerun/data)
+	(find ~ -name .rr_array -exec dirname {} \; > ~/.jb_rerun/data&)
+	if [[ -s $last_run_data_path ]]
+	then
+		# grep number only
+		last_run_timestamp=$(grep -E "[0-9]" -m 1 last_run_data)
+		# check empty string and positive difference
+		echo $(date +%s) - $last_run_timestamp
+		afk_seconds=$(( $(date +%s) - $last_run_timestamp ))
+		echo $afk_seconds
+	else
+		# create new rr_array
+		print_line "${GREEN}no data${NO_COLOR}"
+		# rr_array=("${last_executed_command}")
+	fi
+}
+
 alias r=change_workspace
 alias ra=add_alias
 
-mapfile -t rr_dir_array < <(cat ~/.jb_rerun/data)
-(find ~ -name .rr_array -exec dirname {} \; > ~/.jb_rerun/data&)
+on_start

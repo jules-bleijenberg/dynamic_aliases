@@ -28,6 +28,7 @@ if score < 300 && last_used_time < 1 hour
 else
 	score += 20
 - last_used_time updated to now
+
 when loaded
 - score updated
-- score = score 
+- score = score * (0.99 ** item.last_used_time - time.now)
