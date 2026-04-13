@@ -27,6 +27,25 @@ alias_keys=( "a" "s" "d" "f" "j" "k" "l" )
 max_len=0
 selected_option="INVALID"
 selected_option_key=" "
+aging_reg_pattern="^([0-9]+)\ ([0-9]+)\ ([0-9]+)\ (.+)$"
+aging_value_reg_pattern="^[0-9]+\ [0-9]+\ [0-9]+\ (.+)$"
+
+sort_rr_dir_array() {
+	IFS=$'\n'
+	# todo? sort on last used time too
+	rr_dir_array=($(sort -rgt' ' -k1 <<<"${rr_dir_array[*]}"));
+	unset IFS
+}
+
+save_rr_dir_array()
+{
+	if [[ ${#rr_dir_array[@]} -gt 0 ]];
+	then
+		printf "%s\n" "${rr_dir_array[@]}" > ~/.jb_rerun/data
+	else
+		print_line "${RED}No data to be saved${NO_COLOR}"
+	fi
+}
 
 handle_options()
 {
@@ -162,14 +181,31 @@ change_workspace()
 {
 	if [[ $# -gt 0 ]]; then
 		for i in "${!rr_dir_array[@]}"; do
+			# if rr_dir_item contains parameter
 			if [[ ${rr_dir_array[$i]} == *"$1"* ]]; then
-				echo ${rr_dir_array[$i]}
-				cd ${rr_dir_array[$i]}
-				load_aliases
-				return
+				if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
+					# update score
+					score=$(( ${BASH_REMATCH[2]} + 1 ))
+					rr_dir_array[i]="$score $score $(date +%s) ${BASH_REMATCH[4]}"
+					sort_rr_dir_array
+					save_rr_dir_array
+					# cd  to & load workspace
+					echo ${BASH_REMATCH[4]}
+					cd ${BASH_REMATCH[4]}
+					load_aliases
+					return
+				fi
 			fi
 		done
-		print_line "${NO_COLOR}$1 not found${NO_COLOR}"
+		print_line "${NO_COLOR}$1not found${NO_COLOR}"
+	else
+		# log all workspaces
+		for i in "${!rr_dir_array[@]}"; do
+			if [[ "${rr_dir_array[i]}" =~ $aging_value_reg_pattern ]]; then
+				echo ${BASH_REMATCH[1]}
+			fi
+		done
+		return
 	fi
 	print_header "Select Workspace"
 	handle_options "${rr_dir_array[@]}"
@@ -198,15 +234,6 @@ change_workspace()
 	esac
 	load_aliases
 	# load_workspace
-}
-
-create_workspace()
-{
-	rr_array=()
-	echo "Creating workspace"
-	echo "Write a command you would like to add"
-	read -p ")" user_input
-	rr_array+=($user_input)
 }
 
 print_commands () {
@@ -246,15 +273,32 @@ last_run_data_path=~/.jb_rerun/last_run_data
 
 on_start () {
 	mapfile -t rr_dir_array < <(cat ~/.jb_rerun/data)
-	(find ~ -name .rr_array -exec dirname {} \; > ~/.jb_rerun/data&)
+	# (find ~ -name .rr_array -exec dirname {} \; > ~/.jb_rerun/data&)
 	if [[ -s $last_run_data_path ]]
 	then
 		# grep number only
-		last_run_timestamp=$(grep -E "[0-9]" -m 1 last_run_data)
+		last_run_timestamp=$(grep -E "[0-9]" -m 1 $last_run_data_path)
 		# check empty string and positive difference
-		echo $(date +%s) - $last_run_timestamp
 		afk_seconds=$(( $(date +%s) - $last_run_timestamp ))
-		echo $afk_seconds
+		echo $(date +%s)  $afk_seconds
+		# loop over items
+		for ((i = 0; i < ${#rr_dir_array[@]}; i++));
+		do
+			# string="80 1776016361 /home/jube/.jb_rerun"
+			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
+				printf 'Got %s, %s and %s\n' "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"
+				time_not_ran=$(( ($(date +%s) - ${BASH_REMATCH[3]}) / 3600 )) 
+				# score=$(( ${BASH_REMATCH[1]} * 10 / ( 15 - 14 / (1 + $time_not_ran)) ))
+				score=$(( ${BASH_REMATCH[2]} / (1 + $time_not_ran) ))
+				printf 'tnr %s Score %s\n' "$time_not_ran" "$score"
+				rr_dir_array[i]="$score ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]}"
+				printf 'tnr %s\n' "${rr_dir_array[i]}"
+			else
+				echo ${rr_dir_array[i]}
+			fi
+		done
+		sort_rr_dir_array
+		echo ${rr_dir_array[*]}
 	else
 		# create new rr_array
 		print_line "${GREEN}no data${NO_COLOR}"
