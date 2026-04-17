@@ -1,5 +1,8 @@
 #! /usr/bin/bash
 
+# Global variables
+rr_dir=$HOME/.jb_rerun
+
 # Colors
 GREEN='\033[0;92m';
 RED='\033[0;91m';
@@ -77,7 +80,7 @@ sort_rr_dir_array() {
 			word_list="$word_list $(echo ${BASH_REMATCH[4]} | tr \/ \ )"
 		fi
 	done
-	complete -W "$word_list" r
+	# complete -W "$word_list" r
 }
 
 save_rr_dir_array()
@@ -148,6 +151,13 @@ set_aliases()
   done
 }
 
+print_aliases() {
+  for (( i = 0; i < max_len; i++ )); do
+		alias_key=${alias_keys[$i]}
+    print_line "${OPT_LEFT_COLOR}$alias_key) ${NO_COLOR}${rr_array[$i]}";
+  done
+}
+
 load_aliases()
 {
 	# check if there are commands stored in pwd dir
@@ -214,17 +224,6 @@ remove_alias()
 	save_workspace
 }
 
-load_workspace()
-{
-	# check if file exists
-  mapfile -t rr_array < <(cat $PWD/.rr_array)
-  for i in "${!rr_array[@]}"; do
-    display_index=$((i+1))
-    print_line "${OPT_LEFT_COLOR}$display_index) ${OPT_COLOR}${rr_array[$i]}${NO_COLOR}";
-  done
-	recursive_run
-}
-
 save_workspace()
 {
 	# Assumes current directory is workspace
@@ -270,45 +269,10 @@ change_workspace()
 	fi
 }
 
-print_commands () {
-  for i in "${!rr_array[@]}"; do
-    display_index=$((i+1))
-		if [[ "$#" -eq 1 && $i -eq $1 ]]; then
-		  print_line "	${OPT_LEFT_COLOR}$display_index) ${OPT_COLOR}${rr_array[$i]}${NO_COLOR}";
-		else
-		  print_line "${OPT_LEFT_COLOR}$display_index) ${OPT_COLOR}${rr_array[$i]}${NO_COLOR}";
-		fi
-  done
-}
-
-swap_commands () {
-	clear
-  print_header "Swapping commands"
-	print_commands
-	read -n 1 -p "" first_input;
-	if [[ -n $first_input ]]; then
-		first_index=$((first_input-1))
-		clear
-	  print_header "Swapping commands"
-		print_commands first_index
-		read -n 1 -p "" second_input;
-		if [[ -n $second_input ]]; then
-		  second_index=$((second_input-1))
-			copy_elem="${rr_array[$second_index]}"
-			rr_array[$second_index]="${rr_array[$first_index]}"
-			rr_array[$first_index]="${copy_elem}"
-			swap_commands
-		fi
-	fi
-	clear
-}
-
-last_run_data_path=~/.jb_rerun/last_run_data
-
 calculate_score() {
 	score_index=1
 	seconds=$(( ($(date +%s) - ${BASH_REMATCH[3]}) )) 
-	compare_number=3600
+	compare_number=3600*6
 	multiplier=2
 	while [ $score_index -le 10 ]; do
 		if [ $seconds -le $(( $compare_number * $multiplier )) ]; then
@@ -321,32 +285,15 @@ calculate_score() {
 }
 
 on_start () {
-	mapfile -t rr_dir_array < <(cat ~/.jb_rerun/data)
-	# (find ~ -name .rr_array -exec dirname {} \; > ~/.jb_rerun/data&)
-	if [[ ! -s $last_run_data_path ]]
-	then
-		# create new rr_array
-		print_line "${GREEN}no data${NO_COLOR}"
-		return
-	fi
-	# grep number only
-	last_run_timestamp=$(grep -E "[0-9]" -m 1 $last_run_data_path)
-	# check empty string and positive difference
-	afk_seconds=$(( $(date +%s) - $last_run_timestamp ))
-	echo $(date +%s)  $afk_seconds
-	# loop over items
+	mapfile -t rr_dir_array < <(cat $rr_dir/data)
+	# loop over stored directories and calculate score
 	for ((i = 0; i < ${#rr_dir_array[@]}; i++));
 	do
-		# string="80 1776016361 /home/jube/.jb_rerun"
 		if [[ ! "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
 			echo ${rr_dir_array[i]}
 			continue
 		fi
-		printf 'Got %s, %s and %s\n' "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"
-		# time_not_ran=$(( ($(date +%s) - ${BASH_REMATCH[3]}) / 3600 )) 
-		# # score=$(( ${BASH_REMATCH[1]} * 10 / ( 15 - 14 / (1 + $time_not_ran)) ))
-		# score=$(( ${BASH_REMATCH[2]} / (1 + $time_not_ran) ))
-		# score=$(calculate_score)
+		# printf 'Got %s, %s and %s\n' "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"
 		score=$(calculate_score)
 		rr_dir_array[i]="$score ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]}"
 	done
@@ -354,8 +301,44 @@ on_start () {
 	# echo ${rr_dir_array[*]}
 }
 
-alias r=change_workspace
-alias ra=add_alias
-alias rs=swap_aliases
+rr_workspace_main () {
+	arguments=( )
+	options=""
+	# split options and arguments
+	for argument in $@
+	do
+		if [[ $argument == "-"* ]]; then
+			options="$options$argument"
+		else
+			arguments=( ${arguments[@]} $argument )
+		fi
+	done
+	# handle options
+	if [[ $options == *"h"* ]]; then
+		cat $rr_dir/help.txt
+	elif [[ $options == *"l"* ]]; then
+		print_aliases
+	elif [[ $options == *"s"* ]]; then
+		swap_aliases ${arguments[@]}
+	elif [[ $options == *"a"* ]]; then
+		add_alias
+	else
+		change_workspace $arguments
+	fi
+}
+
+__rr_complete_function () {
+	# BUG: complete not properly splitting (on spaces), not sure why
+	read -ra split_command <<< "$COMP_LINE"
+	read -ra complete_words <<< "$word_list"
+	for ((i = 0; i < ${#complete_words[@]}; i++));
+	do
+		if [[ ${complete_words[$i]} == *"${split_command[1]}"* ]]; then
+			COMPREPLY=("${COMPREPLY[@]}" "${complete_words[$i]}")
+	 	fi
+	done
+}
+
+complete -o bashdefault -o default -F __rr_complete_function 'r'
 
 on_start
