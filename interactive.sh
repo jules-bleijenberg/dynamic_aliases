@@ -152,6 +152,11 @@ set_aliases()
 }
 
 print_aliases() {
+	if [[ -s $PWD/.rr_array ]]; then
+		print_line "$PWD"
+	else
+		print_line "$PWD (not a workspace folder)"
+	fi
   for (( i = 0; i < max_len; i++ )); do
 		alias_key=${alias_keys[$i]}
     print_line "${OPT_LEFT_COLOR}$alias_key) ${NO_COLOR}${rr_array[$i]}";
