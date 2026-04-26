@@ -68,6 +68,10 @@ swap_aliases () {
 	save_workspace
 }
 
+edit_rr_file() {
+	vim .rr_array
+}
+
 sort_rr_dir_array() {
 	IFS=$'\n'
 	# todo? sort on last used time too
@@ -201,6 +205,7 @@ add_alias()
 		done
 		if [[ ${dir_already_exists} -le 0 ]]; then
 			rr_dir_array=("${rr_dir_array[@]}" "$score $score $(date +%s) $(pwd)")
+			save_rr_dir_array
 		fi
 	fi
 	#	rr_array=("${last_executed_command}" "${rr_array[@]:0:8}")
@@ -244,11 +249,24 @@ save_workspace()
 change_workspace()
 {
 	if [[ $# -gt 0 ]]; then
+		if [ -d $1 ]; then
+			cd $1
+			print_line "${NO_COLOR}create what is not found${NO_COLOR}"
+			score=1
+			rr_dir_array=("${rr_dir_array[@]}" "$score $score $(date +%s) $(pwd)")
+			save_rr_dir_array
+			return
+		fi
 		for i in "${!rr_dir_array[@]}"; do
 			# if rr_dir_item contains parameter
 			if [[ ${rr_dir_array[$i]} == *"$1"* ]]; then
 				if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
 					dir=${BASH_REMATCH[4]}
+					# check if directory exists
+					if [ ! -d "$dir" ]; then
+						print_line "No longer valid directory ($dir)"
+						return
+					fi
 					# update score
 					score=$(( ${BASH_REMATCH[2]} + 1 ))
 					# score as old_date + (now - old_date) / 2
@@ -321,6 +339,8 @@ rr_workspace_main () {
 	# handle options
 	if [[ $options == *"h"* ]]; then
 		cat $rr_dir/help.txt
+	elif [[ $options == *"e"* ]]; then
+		edit_rr_file
 	elif [[ $options == *"l"* ]]; then
 		print_aliases
 	elif [[ $options == *"s"* ]]; then

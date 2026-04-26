@@ -2,4 +2,5 @@ Options
 -h) shows this help page
 -s) swaps aliases (e.g. r -s a s)
 -l) list aliases
+-e) edit .rr_array
 -h) shows this help page
