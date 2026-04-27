@@ -74,7 +74,6 @@ edit_rr_file() {
 
 sort_rr_dir_array() {
 	IFS=$'\n'
-	# todo? sort on last used time too
 	rr_dir_array=($(sort -rgt' ' -k1 -k2 <<<"${rr_dir_array[*]}"));
 	unset IFS
 	# set complete words
@@ -95,6 +94,47 @@ save_rr_dir_array()
 	else
 		print_line "${RED}No data to be saved${NO_COLOR}"
 	fi
+}
+
+add_alias_from_last_commands()
+{
+	last_executed_commands_string=$(fc -ln -11 | tail -10)
+	IFS=$'\n'
+	read -r -d '' -a last_executed_commands <<< "$last_executed_commands_string"
+	unset IFS
+	for ((i = 0; i < ${#last_executed_commands[@]}; i++));
+	do
+		last_executed_commands[i]=$(echo "${last_executed_commands[i]}" | cut -d " " -f 2-)
+	done
+	select_last_command
+}
+
+select_last_command()
+{
+	handle_options "${last_executed_commands[@]}"
+	if [[ $selected_option == "EXIT" ]]; then
+		return
+	elif [[ $selected_option == "INVALID" ]]; then
+		select_last_command
+	fi
+	selected_command=$selected_option
+	replace_alias
+}
+
+replace_alias()
+{
+	tmp_rr_array=("${rr_array[@]}" "<empty>")
+	handle_options "${tmp_rr_array[@]}"
+	if [[ $selected_option == "EXIT" ]]; then
+		return
+	elif [[ $selected_option == "INVALID" ]]; then
+		select_last_command
+	fi
+	rr_array[$selected_option_index]=$selected_command
+	# rr_array=("${rr_array[@]}" "${last_executed_command}")
+	set_aliases
+	save_workspace
+	select_last_command
 }
 
 handle_options()
@@ -123,6 +163,7 @@ handle_options()
 		j=$((i+1))
 		if [[ "${option_keys[i]}" = "${user_input}" ]];
 		then
+			selected_option_index=$i
 			selected_option=${!j}
 			break
 		fi
@@ -251,7 +292,7 @@ change_workspace()
 	if [[ $# -gt 0 ]]; then
 		if [ -d $1 ]; then
 			cd $1
-			print_line "${NO_COLOR}create what is not found${NO_COLOR}"
+			print_line "New workspace directory saved${NO_COLOR}"
 			score=1
 			rr_dir_array=("${rr_dir_array[@]}" "$score $score $(date +%s) $(pwd)")
 			save_rr_dir_array
@@ -347,6 +388,8 @@ rr_workspace_main () {
 		swap_aliases ${arguments[@]}
 	elif [[ $options == *"a"* ]]; then
 		add_alias
+	elif [[ $options == *"o"* ]]; then
+		add_alias_from_last_commands
 	else
 		change_workspace $arguments
 	fi

@@ -11,6 +11,8 @@ set when change of directory with termy
 command: /r\w/
 add last executed command: ra
 
+# Managing commands
+Add commands by choice of last x history commands
 
 
 # options
