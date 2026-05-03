@@ -1,3 +1,4 @@
 vim interactive.sh; source interactive.sh
 vim info.txt 
 vim data 
+git log -10 --oneline

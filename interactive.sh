@@ -28,6 +28,7 @@ print_header () {
 option_keys=("a" "s" "d" "f" "g" "h" "j" "k" "l")
 alias_keys=( "a" "s" "d" "f" "j" "k" "l" )
 max_len=0
+rr_dir_array=()
 selected_option="INVALID"
 selected_option_key=" "
 aging_reg_pattern="^([0-9]+)\ ([0-9]+)\ ([0-9]+)\ (.+)$"
@@ -64,7 +65,7 @@ swap_aliases () {
 	copy_elem="${rr_array[$second_element_index]}"
 	rr_array[$second_element_index]="${rr_array[$first_element_index]}"
 	rr_array[$first_element_index]="${copy_elem}"
-	set_aliases
+	set_print_aliases
 	save_workspace
 }
 
@@ -74,7 +75,8 @@ edit_rr_file() {
 
 sort_rr_dir_array() {
 	IFS=$'\n'
-	rr_dir_array=($(sort -rgt' ' -k1 -k2 <<<"${rr_dir_array[*]}"));
+	local -n _rr_dir_array="rr_dir_array"
+	_rr_dir_array=($(sort -rgt' ' -k1 -k2 <<<"${_rr_dir_array[*]}"));
 	unset IFS
 	# set complete words
 	word_list=''
@@ -91,8 +93,6 @@ save_rr_dir_array()
 	if [[ ${#rr_dir_array[@]} -gt 0 ]];
 	then
 		printf "%s\n" "${rr_dir_array[@]}" > ~/.jb_rerun/data
-	else
-		print_line "${RED}No data to be saved${NO_COLOR}"
 	fi
 }
 
@@ -112,10 +112,11 @@ add_alias_from_last_commands()
 select_last_command()
 {
 	handle_options "${last_executed_commands[@]}"
+	while [[ $selected_option == "INVALID" ]]; do
+		handle_options "${last_executed_commands[@]}"
+	done
 	if [[ $selected_option == "EXIT" ]]; then
 		return
-	elif [[ $selected_option == "INVALID" ]]; then
-		select_last_command
 	fi
 	selected_command=$selected_option
 	replace_alias
@@ -125,14 +126,15 @@ replace_alias()
 {
 	tmp_rr_array=("${rr_array[@]}" "<empty>")
 	handle_options "${tmp_rr_array[@]}"
+	while [[ $selected_option == "INVALID" ]]; do
+		handle_options "${tmp_rr_array[@]}"
+	done
 	if [[ $selected_option == "EXIT" ]]; then
 		return
-	elif [[ $selected_option == "INVALID" ]]; then
-		select_last_command
 	fi
 	rr_array[$selected_option_index]=$selected_command
 	# rr_array=("${rr_array[@]}" "${last_executed_command}")
-	set_aliases
+	set_print_aliases
 	save_workspace
 	select_last_command
 }
@@ -190,7 +192,7 @@ set_aliases()
   for (( i = 0; i < max_len; i++ )); do
 		alias_key=${alias_keys[$i]}
 		remove_alias_key=${alias_keys[$i]}_r
-    print_line "${OPT_LEFT_COLOR}$alias_key) ${NO_COLOR}${rr_array[$i]}";
+    # print_line "${OPT_LEFT_COLOR}$alias_key) ${NO_COLOR}${rr_array[$i]}";
 		alias "$alias_key=${rr_array[$i]}"
 		alias "$remove_alias_key=remove_alias $i"
   done
@@ -208,6 +210,12 @@ print_aliases() {
   done
 }
 
+set_print_aliases()
+{
+	set_aliases
+	print_aliases
+}
+
 load_aliases()
 {
 	# check if there are commands stored in pwd dir
@@ -218,7 +226,15 @@ load_aliases()
 	fi
 	# load commands into array
   mapfile -t rr_array < <(cat $PWD/.rr_array)
-	set_aliases
+	set_print_aliases
+}
+
+add_rr_dir_item()
+{
+	local -n _rr_dir_array="rr_dir_array"
+	_rr_dir_array=("${_rr_dir_array[@]}" "1 1 $(date +%s) $1");
+	sort_rr_dir_array
+	save_rr_dir_array
 }
 
 add_alias()
@@ -245,13 +261,12 @@ add_alias()
 			fi
 		done
 		if [[ ${dir_already_exists} -le 0 ]]; then
-			rr_dir_array=("${rr_dir_array[@]}" "$score $score $(date +%s) $(pwd)")
-			save_rr_dir_array
+			add_rr_dir_item "$pwd"
 		fi
 	fi
 	#	rr_array=("${last_executed_command}" "${rr_array[@]:0:8}")
 	# reload aliases
-	set_aliases
+	set_print_aliases
 	save_workspace
 }
 
@@ -271,7 +286,7 @@ remove_alias()
 	# fi
 	rr_array=("${new_rr_array[@]}")
 	unset new_rr_array
-	set_aliases
+	set_print_aliases
 	save_workspace
 }
 
@@ -287,50 +302,70 @@ save_workspace()
 	fi
 }
 
+log_all_workspaces()
+{
+	for i in "${!rr_dir_array[@]}"; do
+		if [[ "${rr_dir_array[i]}" =~ $aging_value_reg_pattern ]]; then
+			echo ${BASH_REMATCH[1]}
+		fi
+	done
+}
+
 change_workspace()
 {
-	if [[ $# -gt 0 ]]; then
-		if [ -d $1 ]; then
-			cd $1
-			print_line "New workspace directory saved${NO_COLOR}"
-			score=1
-			rr_dir_array=("${rr_dir_array[@]}" "$score $score $(date +%s) $(pwd)")
-			save_rr_dir_array
-			return
-		fi
+	if [[ $# -eq 0 ]]; then
+		log_all_workspaces
+		return
+	fi
+	dir=$(get_workspace $1)
+	if [[ -z $dir ]]; then
+		print_line "${NO_COLOR}$1 not found${NO_COLOR}"
+	else
+		cd $dir
+		load_aliases
+	fi
+}
+
+get_workspace()
+{
+	if [ -d $1 ]; then
+		arg_dir=$(realpath $1)
+		echo $arg_dir
+		# check if dir already exists
 		for i in "${!rr_dir_array[@]}"; do
-			# if rr_dir_item contains parameter
-			if [[ ${rr_dir_array[$i]} == *"$1"* ]]; then
-				if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
-					dir=${BASH_REMATCH[4]}
-					# check if directory exists
-					if [ ! -d "$dir" ]; then
-						print_line "No longer valid directory ($dir)"
-						return
-					fi
-					# update score
-					score=$(( ${BASH_REMATCH[2]} + 1 ))
-					# score as old_date + (now - old_date) / 2
-					rr_dir_array[i]="$score $score $(date +%s) ${BASH_REMATCH[4]}"
-					sort_rr_dir_array
-					save_rr_dir_array
-					# cd  to & load workspace
-					print_line "$dir"
-					cd $dir
-					load_aliases
+			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
+				dir=${BASH_REMATCH[4]}
+				if [[ "$arg_dir" == "$dir" ]]; then
 					return
 				fi
 			fi
 		done
-		print_line "${NO_COLOR}$1 not found${NO_COLOR}"
-	else
-		# log all workspaces
-		for i in "${!rr_dir_array[@]}"; do
-			if [[ "${rr_dir_array[i]}" =~ $aging_value_reg_pattern ]]; then
-				echo ${BASH_REMATCH[1]}
-			fi
-		done
+		# else add workspace to rr_dir_array
+		rr_array=()
+		add_rr_dir_item "$arg_dir"
+		return
 	fi
+	for i in "${!rr_dir_array[@]}"; do
+		# if rr_dir_item contains parameter
+		if [[ ${rr_dir_array[$i]} == *"$1"* ]]; then
+			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
+				dir=${BASH_REMATCH[4]}
+				# check if directory exists
+				if [ ! -d "$dir" ]; then
+					continue # or return? maybe colorcode when logging all dirs
+				fi
+				# update score
+				score=$(( ${BASH_REMATCH[2]} + 1 ))
+				# score as old_date + (now - old_date) / 2
+				rr_dir_array[i]="$score $score $(date +%s) ${BASH_REMATCH[4]}"
+				sort_rr_dir_array
+				save_rr_dir_array
+				# cd  to & load workspace
+				echo $dir
+				return
+			fi
+		fi
+	done
 }
 
 calculate_score() {
@@ -380,6 +415,8 @@ rr_workspace_main () {
 	# handle options
 	if [[ $options == *"h"* ]]; then
 		cat $rr_dir/help.txt
+	elif [[ $options == *"d"* ]]; then
+		echo $(get_workspace $arguments)
 	elif [[ $options == *"e"* ]]; then
 		edit_rr_file
 	elif [[ $options == *"l"* ]]; then
