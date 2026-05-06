@@ -1,7 +1,8 @@
 #! /usr/bin/bash
 
 # Global variables
-rr_dir=$HOME/.jb_rerun
+RR_MAIN_DIR=$HOME/.jb_rerun
+RR_WORKSPACE_FILE=.rr_array
 
 # Colors
 GREEN='\033[0;92m';
@@ -91,7 +92,7 @@ save_rr_dir_array()
 {
 	if [[ ${#rr_dir_array[@]} -gt 0 ]];
 	then
-		printf "%s\n" "${rr_dir_array[@]}" > $rr_dir/data
+		printf "%s\n" "${rr_dir_array[@]}" > $RR_MAIN_DIR/data
 	fi
 }
 
@@ -230,7 +231,6 @@ load_aliases()
 
 add_rr_dir_item()
 {
-	rr_dir_array="rr_dir_array"
 	rr_dir_array=("${rr_dir_array[@]}" "1 1 $(date +%s) $1");
 	sort_rr_dir_array
 	save_rr_dir_array
@@ -250,8 +250,6 @@ add_alias()
 		# create new rr_array
 		print_line "${GREEN}Created workspace${NO_COLOR}"
 		rr_array=("${last_executed_command}")
-		# add dir to rr_dir_array
-		score=1
 		# check if dir already exists
 		dir_already_exists=0
 		for i in "${!rr_dir_array[@]}"; do
@@ -364,7 +362,6 @@ get_workspace()
 				rr_dir_array[i]="$score $score $(date +%s) ${BASH_REMATCH[4]}"
 				sort_rr_dir_array
 				save_rr_dir_array
-				# cd  to & load workspace
 				echo $dir
 				return
 			fi
@@ -388,7 +385,7 @@ calculate_score() {
 }
 
 on_start () {
-	mapfile -t rr_dir_array < <(cat $rr_dir/data)
+	mapfile -t rr_dir_array < <(cat $RR_MAIN_DIR/data)
 	# loop over stored directories and calculate score
 	for ((i = 0; i < ${#rr_dir_array[@]}; i++));
 	do
@@ -418,7 +415,7 @@ rr_workspace_main () {
 	done
 	# handle options
 	if [[ $options == *"h"* ]]; then
-		cat $rr_dir/help.txt
+		cat $RR_MAIN_DIR/help.txt
 	elif [[ $options == *"d"* ]]; then
 		echo $(get_workspace $arguments)
 	elif [[ $options == *"e"* ]]; then
