@@ -75,8 +75,7 @@ edit_rr_file() {
 
 sort_rr_dir_array() {
 	IFS=$'\n'
-	local -n _rr_dir_array="rr_dir_array"
-	_rr_dir_array=($(sort -rgt' ' -k1 -k2 <<<"${_rr_dir_array[*]}"));
+	rr_dir_array=($(sort -rgt' ' -k1 -k2 <<<"${rr_dir_array[*]}"));
 	unset IFS
 	# set complete words
 	word_list=''
@@ -231,8 +230,8 @@ load_aliases()
 
 add_rr_dir_item()
 {
-	local -n _rr_dir_array="rr_dir_array"
-	_rr_dir_array=("${_rr_dir_array[@]}" "1 1 $(date +%s) $1");
+	rr_dir_array="rr_dir_array"
+	rr_dir_array=("${rr_dir_array[@]}" "1 1 $(date +%s) $1");
 	sort_rr_dir_array
 	save_rr_dir_array
 }
@@ -245,6 +244,7 @@ add_alias()
 	if [[ -s $PWD/.rr_array ]]
 	then
 		# append last executed command
+		local -n _rr_array="rr_array"
 		rr_array=("${rr_array[@]}" "${last_executed_command}")
 	else
 		# create new rr_array
@@ -318,31 +318,35 @@ change_workspace()
 		return
 	fi
 	dir=$(get_workspace $1)
-	if [[ -z $dir ]]; then
-		print_line "${NO_COLOR}$1 not found${NO_COLOR}"
-	else
-		cd $dir
-		load_aliases
+	# if arg not valid dir
+	if [[ -z $dir && ! -d $1 ]]; then
+		print_line "$1 is not a directory"
+		return
 	fi
+	# if dir not in rr_dir_array and valid directory
+	if [[ -z $dir ]]; then
+		dir=$(realpath $1)
+		rr_array=()
+		add_rr_dir_item "$dir"
+	fi
+	cd $dir
+	load_aliases
 }
 
 get_workspace()
 {
 	if [ -d $1 ]; then
 		arg_dir=$(realpath $1)
-		echo $arg_dir
 		# check if dir already exists
 		for i in "${!rr_dir_array[@]}"; do
 			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
 				dir=${BASH_REMATCH[4]}
 				if [[ "$arg_dir" == "$dir" ]]; then
+					echo $arg_dir
 					return
 				fi
 			fi
 		done
-		# else add workspace to rr_dir_array
-		rr_array=()
-		add_rr_dir_item "$arg_dir"
 		return
 	fi
 	for i in "${!rr_dir_array[@]}"; do
