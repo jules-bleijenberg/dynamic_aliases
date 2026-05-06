@@ -91,7 +91,7 @@ save_rr_dir_array()
 {
 	if [[ ${#rr_dir_array[@]} -gt 0 ]];
 	then
-		printf "%s\n" "${rr_dir_array[@]}" > ~/.jb_rerun/data
+		printf "%s\n" "${rr_dir_array[@]}" > $rr_dir/data
 	fi
 }
 
@@ -201,11 +201,11 @@ print_aliases() {
 	if [[ -s $PWD/.rr_array ]]; then
 		print_line "$PWD"
 	else
-		print_line "$PWD (not a workspace folder)"
+		print_line "$PWD (no .rr_array file found)"
 	fi
   for (( i = 0; i < max_len; i++ )); do
 		alias_key=${alias_keys[$i]}
-    print_line "${OPT_LEFT_COLOR}$alias_key) ${NO_COLOR}${rr_array[$i]}";
+    printf "$GREEN%s) $NO_COLOR%s\n" "$alias_key" "${rr_array[$i]}"
   done
 }
 
