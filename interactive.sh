@@ -19,14 +19,14 @@ print_line () {
 
 # Print header
 print_header () {	
-	printf "${GREEN} --- $@ ---${NO_COLOR}\n";
+	printf "${GREEN}--- %s ---${NO_COLOR}\n" "$1";
 }
 
 # Workspace oriented (one file per folder)
 #		A workspace is usefull in a directory in which the same commands are often used
 #		A workspace directory contains a .rr_array file with the commands
 
-option_keys=("a" "s" "d" "f" "g" "h" "j" "k" "l")
+option_keys=("a" "s" "d" "f" "j" "k" "l")
 alias_keys=( "a" "s" "d" "f" "j" "k" "l" )
 page_keys=( "u" "i" )
 max_len=0
@@ -117,13 +117,13 @@ add_alias_from_last_commands()
 	#	rev_i=$(( ${#last_executed_commands[@]} - i - 1 ))
 	#	echo ${alias_keys[$i]} ${last_executed_commands[$rev_i]}
 	#done
-	handle_options last_executed_commands
+	handle_options last_executed_commands "History Commands"
 	if [[ $selected_option == "EXIT" ]]; then
 		return
 	fi
 	selected_command=$selected_option
 	tmp_rr_array=("${rr_array[@]}" "<empty>")
-	handle_options tmp_rr_array
+	handle_options tmp_rr_array "Overwrite Alias"
 	if [[ $selected_option == "EXIT" ]]; then
 		return
 	fi
@@ -149,7 +149,12 @@ handle_options()
 		return
 	fi
 	loop_size=$(get_smallest_number ${#option_keys[@]} ${#_array[@]})
-	print_header "Options"
+	tput sc
+	header="Options"
+	if [ $# -ge 2 ]; then
+		header="$2"
+	fi
+	print_header "$header"
 	# print options
 	for ((i = 0; i < $loop_size; i++));
 	do
@@ -175,12 +180,11 @@ handle_options()
 			then
 				selected_option_index=$i
 				selected_option=${_array[i]}
-				printf "$user_input\n"
+				tput rc ed
+				#printf "$user_input> $selected_option\n"
 				return
 			fi
 		done
-		# reset last line
-		# tput hpa 0 el bel
 		tput bel
 	done
 }
@@ -291,9 +295,6 @@ remove_alias()
 			new_rr_array+=( "${rr_array[i]}" )
 		fi
 	done
-	# remove rr_dir_item if no aliases left?
-	# if [[ ${#rr_array[@]} -le ${#alias_keys[@]} ]]; then
-	# fi
 	rr_array=("${new_rr_array[@]}")
 	unset new_rr_array
 	set_print_aliases
