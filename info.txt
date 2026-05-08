@@ -4,7 +4,6 @@ Set and unset aliases
 # Change directories
 ~/termy/data (storage)
 command: r [partial name / fuzzy find]
-autocomplete feature?
 
 # Commands (aliases)
 set when change of directory with termy
@@ -14,13 +13,14 @@ add last executed command: ra
 # Managing commands
 Add commands by choice of last x history commands
 
+# Dynamic folder aliases
+load file when dir pattern matches
+[pattern] [path to rr file]
 
-# options
-last 50 used items stored in array (lot of data)
-score and time system
-score = score + (now - score) / divider // divider = 5, and gets temporary -1 when used
 
 # Frecently algorithm
+- score and time system
+- score = score + (now - score) / divider // divider = 5, and gets temporary -1 when used
 
 item data
 - last_used_time

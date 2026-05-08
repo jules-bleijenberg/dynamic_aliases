@@ -101,8 +101,15 @@ save_rr_dir_array()
 
 add_alias_from_last_commands()
 {
-	# get last commands
-	last_executed_commands_string=$(fc -rln -30 | grep -ve $'^\t r ')
+	# get last commands (excludine r commands)
+	grep_selection=$'^\t [r'
+	for i in "${!alias_keys[@]}"; do
+		grep_selection="$grep_selection${alias_keys[i]}"
+	done
+	grep_selection="${grep_selection}]"
+	echo $grep_selection
+	last_executed_commands_string=$(fc -rln -50 | grep -ve "$grep_selection .*\|$grep_selection$")
+	#last_executed_commands_string=$(fc -rln -30 | grep -ve $'^\t r ')
 	# last_executed_commands_string=$(fc -rln -11 | tail -10)
 	IFS=$'\n'
 	read -r -d '' -a last_executed_commands <<< "$last_executed_commands_string"
@@ -401,20 +408,20 @@ calculate_score() {
 }
 
 on_start () {
-	mapfile -t rr_dir_array < <(cat $RR_MAIN_DIR/data)
-	# loop over stored directories and calculate score
+	if [ -s $RR_MAIN_DIR/data ]; then
+		mapfile -t rr_dir_array < <(cat $RR_MAIN_DIR/data)
+	fi
+	# loop over stored directories and recalculate score
 	for ((i = 0; i < ${#rr_dir_array[@]}; i++));
 	do
 		if [[ ! "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
 			echo ${rr_dir_array[i]}
 			continue
 		fi
-		# printf 'Got %s, %s and %s\n' "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"
 		score=$(calculate_score)
 		rr_dir_array[i]="$score ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]}"
 	done
 	sort_rr_dir_array
-	# echo ${rr_dir_array[*]}
 }
 
 rr_workspace_main () {
