@@ -30,6 +30,7 @@ option_keys=("a" "s" "d" "f" "g" "h" "j" "k" "l")
 alias_keys=( "a" "s" "d" "f" "j" "k" "l" )
 max_len=0
 rr_dir_array=()
+rr_dir_item_id=0
 selected_option="INVALID"
 selected_option_key=" "
 aging_reg_pattern="^([0-9]+)\ ([0-9]+)\ ([0-9]+)\ (.+)$"
@@ -48,6 +49,19 @@ get_item_index() {
 	 	fi
 	done
 	echo -1
+}
+
+get_rr_dir_item() {
+	# use $? (status of this function) and BASH_REMATCH to use item
+	for i in "${!rr_dir_array[@]}"; do
+		if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
+			dir=${BASH_REMATCH[4]}
+			if [[ "$arg_dir" == "$1" ]]; then
+				return 0
+			fi
+		fi
+	done
+	return 1
 }
 
 swap_aliases () {
@@ -72,6 +86,7 @@ swap_aliases () {
 
 edit_rr_file() {
 	vim .rr_array
+	set_print_aliases
 }
 
 sort_rr_dir_array() {
@@ -315,23 +330,33 @@ change_workspace()
 		log_all_workspaces
 		return
 	fi
-	dir=$(get_workspace $1)
+	get_workspace_dir $1
+	get_workspace_dir_code=$?
 	# if arg not valid dir
-	if [[ -z $dir && ! -d $1 ]]; then
-		print_line "$1 is not a directory"
-		return
-	fi
-	# if dir not in rr_dir_array and valid directory
-	if [[ -z $dir ]]; then
+	if [ $get_workspace_dir_code -ne 0 ]; then
+		if [ ! -d $1 ]; then
+			print_line "$1 is not a workspace or directory"
+			return
+		fi
+		# create rr_dir_item
 		dir=$(realpath $1)
 		rr_array=()
 		add_rr_dir_item "$dir"
+	else
+		dir=${BASH_REMATCH[4]}
+		# update score
+		BASH_REMATCH[2]=$(( ${BASH_REMATCH[2]} + 1 ))
+		# score as old_date + (now - old_date) / 2
+		score=$(calculate_score)
+		rr_dir_array[rr_dir_item_id]="$score ${BASH_REMATCH[2]} $(date +%s) ${BASH_REMATCH[4]}"
+		sort_rr_dir_array
+		save_rr_dir_array
 	fi
 	cd $dir
 	load_aliases
 }
 
-get_workspace()
+get_workspace_dir()
 {
 	if [ -d $1 ]; then
 		arg_dir=$(realpath $1)
@@ -340,33 +365,26 @@ get_workspace()
 			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
 				dir=${BASH_REMATCH[4]}
 				if [[ "$arg_dir" == "$dir" ]]; then
-					echo $arg_dir
-					return
+					rr_dir_item_id=$i
+					return 0
 				fi
 			fi
 		done
-		return
-	fi
-	for i in "${!rr_dir_array[@]}"; do
-		# if rr_dir_item contains parameter
-		if [[ ${rr_dir_array[$i]} == *"$1"* ]]; then
-			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
+	else
+		for i in "${!rr_dir_array[@]}"; do
+			# if rr_dir_item contains parameter
+			if [[ ${rr_dir_array[$i]} == *"$1"* && "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
 				dir=${BASH_REMATCH[4]}
 				# check if directory exists
 				if [ ! -d "$dir" ]; then
-					continue # or return? maybe colorcode when logging all dirs
+					continue
 				fi
-				# update score
-				score=$(( ${BASH_REMATCH[2]} + 1 ))
-				# score as old_date + (now - old_date) / 2
-				rr_dir_array[i]="$score $score $(date +%s) ${BASH_REMATCH[4]}"
-				sort_rr_dir_array
-				save_rr_dir_array
-				echo $dir
-				return
+				rr_dir_item_id=$i
+				return 0
 			fi
-		fi
-	done
+		done
+	fi
+	return 61
 }
 
 calculate_score() {
@@ -417,7 +435,10 @@ rr_workspace_main () {
 	if [[ $options == *"h"* ]]; then
 		cat $RR_MAIN_DIR/help.txt
 	elif [[ $options == *"d"* ]]; then
-		echo $(get_workspace $arguments)
+		get_workspace_dir $arguments
+		if [ $? -eq 0 ]; then
+			echo ${BASH_REMATCH[4]}
+		fi
 	elif [[ $options == *"e"* ]]; then
 		edit_rr_file
 	elif [[ $options == *"l"* ]]; then
