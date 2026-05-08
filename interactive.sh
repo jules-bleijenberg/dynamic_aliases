@@ -19,7 +19,7 @@ print_line () {
 
 # Print header
 print_header () {	
-	printf "\n${GREEN} --- $@ --- \n${NO_COLOR}\n";
+	printf "${GREEN} --- $@ ---${NO_COLOR}\n";
 }
 
 # Workspace oriented (one file per folder)
@@ -28,6 +28,7 @@ print_header () {
 
 option_keys=("a" "s" "d" "f" "g" "h" "j" "k" "l")
 alias_keys=( "a" "s" "d" "f" "j" "k" "l" )
+page_keys=( "u" "i" )
 max_len=0
 rr_dir_array=()
 rr_dir_item_id=0
@@ -49,19 +50,6 @@ get_item_index() {
 	 	fi
 	done
 	echo -1
-}
-
-get_rr_dir_item() {
-	# use $? (status of this function) and BASH_REMATCH to use item
-	for i in "${!rr_dir_array[@]}"; do
-		if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
-			dir=${BASH_REMATCH[4]}
-			if [[ "$arg_dir" == "$1" ]]; then
-				return 0
-			fi
-		fi
-	done
-	return 1
 }
 
 swap_aliases () {
@@ -113,79 +101,88 @@ save_rr_dir_array()
 
 add_alias_from_last_commands()
 {
-	last_executed_commands_string=$(fc -ln -11 | tail -10)
+	# get last commands
+	last_executed_commands_string=$(fc -rln -30 | grep -ve $'^\t r ')
+	# last_executed_commands_string=$(fc -rln -11 | tail -10)
 	IFS=$'\n'
 	read -r -d '' -a last_executed_commands <<< "$last_executed_commands_string"
 	unset IFS
 	for ((i = 0; i < ${#last_executed_commands[@]}; i++));
 	do
+		# remove padding
 		last_executed_commands[i]=$(echo "${last_executed_commands[i]}" | cut -d " " -f 2-)
 	done
-	select_last_command
-}
-
-select_last_command()
-{
-	handle_options "${last_executed_commands[@]}"
-	while [[ $selected_option == "INVALID" ]]; do
-		handle_options "${last_executed_commands[@]}"
-	done
+	#for ((i = 0; i < ${#last_executed_commands[@]}; i++));
+	#do
+	#	rev_i=$(( ${#last_executed_commands[@]} - i - 1 ))
+	#	echo ${alias_keys[$i]} ${last_executed_commands[$rev_i]}
+	#done
+	handle_options last_executed_commands
 	if [[ $selected_option == "EXIT" ]]; then
 		return
 	fi
 	selected_command=$selected_option
-	replace_alias
-}
-
-replace_alias()
-{
 	tmp_rr_array=("${rr_array[@]}" "<empty>")
-	handle_options "${tmp_rr_array[@]}"
-	while [[ $selected_option == "INVALID" ]]; do
-		handle_options "${tmp_rr_array[@]}"
-	done
+	handle_options tmp_rr_array
 	if [[ $selected_option == "EXIT" ]]; then
 		return
 	fi
 	rr_array[$selected_option_index]=$selected_command
-	# rr_array=("${rr_array[@]}" "${last_executed_command}")
 	set_print_aliases
 	save_workspace
-	select_last_command
+}
+
+get_smallest_number()
+{
+	if [ $1 -le $2 ]; then
+		echo $1
+	else
+		echo $2
+	fi
 }
 
 handle_options()
 {
-	# print options
-	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
-	do
-		j=$((i+1))
-		#echo "${option_keys[i]}) ${!j}"
-		printf "${GREEN}${option_keys[i]}) ${NO_COLOR}${!j}\n";
-	done
-	# get user input
-	print_header "Your Choice"
-	read -n 1 -p ">" user_input
-	# handle user input
-	selected_option_key=${user_input}
-	selected_option="INVALID"
-	if [[ "${user_input}" = "q" ]];
-	then
-		print_line "${GREEN}Terminated successfully${NO_COLOR}"
-		selected_option="EXIT"
+	local -n _array=$1 
+	# check assignment and array size
+	if [[ $? -ne 0 || ${#_array[@]} -eq 0 ]]; then
 		return
 	fi
-	for ((i = 0; i < ${#option_keys[@]} && i < $#; i++));
+	loop_size=$(get_smallest_number ${#option_keys[@]} ${#_array[@]})
+	print_header "Options"
+	# print options
+	for ((i = 0; i < $loop_size; i++));
 	do
-		j=$((i+1))
-		if [[ "${option_keys[i]}" = "${user_input}" ]];
-		then
-			selected_option_index=$i
-			selected_option=${!j}
-			break
-		fi
+		printf "${GREEN}%s) ${NO_COLOR}%s\n" "${option_keys[i]}" "${_array[i]}";
 	done
-	echo ""
+	#print_header "Your Choice"
+	printf ">"
+	selected_option="INVALID"
+	while true; do
+		# get user input
+		read -rs -n 1 user_input
+		# handle user input
+		selected_option_key=${user_input}
+		if [[ "${user_input}" = "q" ]];
+		then
+			print_line "${GREEN}Exited by user${NO_COLOR}"
+			selected_option="EXIT"
+			return
+		fi
+		for ((i = 0; i < $loop_size; i++));
+		do
+			if [[ "${option_keys[i]}" = "${user_input}" ]];
+			then
+				selected_option_index=$i
+				selected_option=${_array[i]}
+				printf "$user_input\n"
+				return
+			fi
+		done
+		# reset last line
+		# tput hpa 0 el bel
+		tput bel
+	done
 }
 
 set_aliases()
