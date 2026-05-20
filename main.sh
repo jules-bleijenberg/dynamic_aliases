@@ -325,7 +325,7 @@ save_workspace()
 	fi
 }
 
-log_all_workspaces()
+print_workspaces()
 {
 	for i in "${!rr_dir_array[@]}"; do
 		if [[ "${rr_dir_array[i]}" =~ $aging_value_reg_pattern ]]; then
@@ -337,7 +337,7 @@ log_all_workspaces()
 change_workspace()
 {
 	if [[ $# -eq 0 ]]; then
-		log_all_workspaces
+		printf "Cannot cd into the vast emptyness of this universe\nSeriously though we do need an directory as argument\n"
 		return
 	fi
 	get_workspace_dir $1
@@ -453,6 +453,8 @@ rr_workspace_main () {
 	elif [[ $options == *"e"* ]]; then
 		edit_rr_file
 	elif [[ $options == *"l"* ]]; then
+		print_workspaces
+	elif [[ $options == *"i"* ]]; then
 		print_aliases
 	elif [[ $options == *"s"* ]]; then
 		swap_aliases ${arguments[@]}
@@ -467,7 +469,6 @@ rr_workspace_main () {
 
 __rr_complete_function () {
 	# BUG: complete not properly splitting (on spaces), not sure why
-	echo "lol"
 	read -ra split_command <<< "$COMP_LINE"
 	read -ra complete_words <<< "$word_list"
 	for ((i = 0; i < ${#complete_words[@]}; i++));
@@ -477,7 +478,5 @@ __rr_complete_function () {
 	 	fi
 	done
 }
-
-complete -o bashdefault -o default -F __rr_complete_function 'r'
 
 on_start
