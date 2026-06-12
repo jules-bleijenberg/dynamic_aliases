@@ -4,4 +4,3 @@ Options
 -l) list aliases
 -e) edit .rr_array
 -o) interactively overwrite commands with last 10 history commands
--h) shows this help page
