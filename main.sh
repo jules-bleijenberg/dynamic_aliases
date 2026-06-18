@@ -23,7 +23,6 @@ rr_selected_option_index=0
 
 alias_keys=("${RR_OPTION_KEYS[@]}")
 rr_max_len=0
-rr_dir_array=()
 rr_dir_item_id=0
 selected_option="INVALID"
 selected_option_key=" "
@@ -131,20 +130,6 @@ edit_rr_file() {
 	load_aliases
 }
 
-sort_rr_dir_array() {
-	IFS=$'\n'
-	rr_dir_array=($(sort -rgt' ' -k1 -k2 <<<"${rr_dir_array[*]}"));
-	unset IFS
-}
-
-save_rr_dir_array()
-{
-	if [[ ${#rr_dir_array[@]} -gt 0 ]];
-	then
-		printf "%s\n" "${rr_dir_array[@]}" > $RR_WORKSPACE_DIR/data
-	fi
-}
-
 add_alias_from_last_commands()
 {
 	# get last commands (excludine r commands)
@@ -187,14 +172,36 @@ add_alias_from_last_commands()
 	save_workspace
 }
 
+add_custom_alias()
+{
+	# while [ true ]; do
+	last_executed_command=$(fc -rln -50 | cut -d " " -f 2- | fzf)
+	if [ $? -gt 0 ]; then
+		return
+	fi
+	printf "%s\n" "$last_executed_command"
+	read -e -p 'alias>' user_input
+	# parse input for valid alias
+	if [ $? -gt 0 ]; then
+		return
+	fi
+	rr_array+=( "$last_executed_command" )
+	rr_alias_array+=( "$user_input" )
+  printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${alias_keys[rr_selected_option_index]}" "$selected_command"
+	# done
+	# if [ "$rr_array_modified" = false ]; then
+	# 	return
+	# fi
+	set_print_aliases
+	save_workspace
+}
+
 set_aliases()
 {
 	# remove aliases of deleted elements
   for (( i = 0; i < rr_max_len; i++ )); do
 		alias_key=${alias_keys[$i]}
-		remove_alias_key=${alias_keys[$i]}_r
 		unalias "$alias_key"
-		unalias "$remove_alias_key"
   done
 	# get max alias size
 	if [[ ${#rr_array[@]} -le ${#alias_keys[@]} ]]; then
@@ -205,9 +212,7 @@ set_aliases()
 	# set aliases and print them
   for (( i = 0; i < rr_max_len; i++ )); do
 		alias_key=${alias_keys[$i]}
-		remove_alias_key=${alias_keys[$i]}_r
 		alias "$alias_key=${rr_array[$i]}"
-		alias "$remove_alias_key=remove_alias $i"
   done
 }
 
@@ -232,21 +237,12 @@ set_print_aliases()
 load_aliases()
 {
 	# check if there are commands stored in pwd dir
-	if [[ ! -s $PWD/$RR_WORKSPACE_FILE ]]
+	if [[ -s $PWD/$RR_WORKSPACE_FILE ]]
 	then
-		printf "workspace file not found\n";
-		return
+		# load commands into array
+		mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
+		set_print_aliases
 	fi
-	# load commands into array
-  mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
-	set_print_aliases
-}
-
-add_rr_dir_item()
-{
-	rr_dir_array=("${rr_dir_array[@]}" "1 1 $(date +%s) $1");
-	sort_rr_dir_array
-	save_rr_dir_array
 }
 
 add_alias()
@@ -263,17 +259,6 @@ add_alias()
 		# create new rr_array
 		printf "${RR_GOOD}Created workspace${RR_PRIMARY}\n"
 		rr_array=("${last_executed_command}")
-		# check if dir already exists
-		dir_already_exists=0
-		for i in "${!rr_dir_array[@]}"; do
-			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]] && [[ ${BASH_REMATCH[4]} == $(pwd) ]]; then
-				dir_already_exists=1
-				break
-			fi
-		done
-		if [[ ${dir_already_exists} -le 0 ]]; then
-			add_rr_dir_item "$pwd"
-		fi
 	fi
 	#	rr_array=("${last_executed_command}" "${rr_array[@]:0:8}")
 	# reload aliases
@@ -311,70 +296,6 @@ save_workspace()
 	fi
 }
 
-print_workspaces()
-{
-	for i in "${!rr_dir_array[@]}"; do
-		if [[ "${rr_dir_array[i]}" =~ $aging_value_reg_pattern ]]; then
-			echo ${BASH_REMATCH[1]}
-		fi
-	done
-}
-
-get_workspace_directory_id()
-{
-	if [ ! -d $1 ]; then
-		return 20
-	fi
-	directory=$(realpath $1)
-	# check if dir already exists
-	for i in "${!rr_dir_array[@]}"; do
-		if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
-			saved_directory=${BASH_REMATCH[4]}
-			if [[ "$directory" == "$saved_directory" ]]; then
-				rr_dir_item_id=$i
-				return 0
-			fi
-		fi
-	done
-	return 2
-}
-
-remove_workspace()
-{
-	if [ $# -eq 0 ]; then
-		new_rr_dir_array=( )
-		for i in "${!rr_dir_array[@]}"; do
-			if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
-				saved_directory=${BASH_REMATCH[4]}
-				if [[ -d "$saved_directory" ]]; then
-					new_rr_dir_array+=( "${rr_dir_array[i]}" )
-				fi
-			fi
-		done
-		unset new_rr_dir_array
-		return
-	fi
-	if [ ! -d $1 ]; then
-		printf "Received invalid directory\n"
-		return
-	fi
-	directory=$(realpath $1)
-	get_workspace_directory_id "$directory"
-	if [[ $? -gt 0 ]]; then
-		printf "%s is not a workspace directory\n" "$directory"
-		return
-	fi
-	new_rr_dir_array=( )
-	for i in "${!rr_dir_array[@]}"; do
-		if [[ $rr_dir_item_id -ne $i ]]; then
-			new_rr_dir_array+=( "${rr_dir_array[i]}" )
-		fi
-	done
-	rr_dir_array=("${new_rr_dir_array[@]}")
-	unset new_rr_dir_array
-	save_rr_dir_array
-}
-
 move_workspace()
 {
 	if [[ $# -ne 2 ]]; then
@@ -402,83 +323,6 @@ move_workspace()
 		printf "%s is not a workspace directory\n" "$start_directory"
 		return
 	fi
-	# overwrite saved path
-	rr_dir_array[start_directory_id]="${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} $end_directory"
-	printf "moved path from %s to %s\n" "$start_directory" "$end_directory"
-	save_rr_dir_array
-}
-
-change_workspace()
-{
-	# check if user is trying to go nowhere
-	if [[ $# -eq 0 ]]; then
-		# if he is, respond by doing nothing
-		return
-	fi
-	if [ ! -d $1 ]; then
-		printf "%s is not a valid directory\n" "$1"
-		return
-	fi
-	directory=$(realpath $1)
-	directory_id=-1
-	# check if dir already exists
-	for i in "${!rr_dir_array[@]}"; do
-		if [[ "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
-			saved_directory=${BASH_REMATCH[4]}
-			if [[ "$directory" == "$saved_directory" ]]; then
-				directory_id=$i
-				break
-			fi
-		fi
-	done
-	if [ $directory_id -eq -1 ]; then
-		# create rr_dir_item
-		rr_array=()
-		printf "${RR_GOOD}Added directory${RR_PRIMARY}\n"
-		add_rr_dir_item "$directory"
-	else
-		# update score
-		BASH_REMATCH[2]=$(( ${BASH_REMATCH[2]} + 1 ))
-		score=$(calculate_score)
-		rr_dir_array[directory_id]="$score ${BASH_REMATCH[2]} $(date +%s) ${BASH_REMATCH[4]}"
-		sort_rr_dir_array
-		save_rr_dir_array
-	fi
-	cd $directory
-	load_aliases
-}
-
-calculate_score() {
-	score_index=1
-	seconds=$(( ($(date +%s) - ${BASH_REMATCH[3]}) )) 
-	compare_number=3600*6
-	multiplier=2
-	while [ $score_index -le 10 ]; do
-		if [ $seconds -le $(( $compare_number * $multiplier )) ]; then
-			break
-		fi
-		multiplier=$(( $multiplier * 2))
-		score_index=$(( $score_index + 1 ))
-	done
-	echo $(( ${BASH_REMATCH[2]} / ($score_index) ))
-}
-
-on_start () {
-	# load workspaces if data file exists
-	if [ -s $RR_WORKSPACE_DIR/data ]; then
-		mapfile -t rr_dir_array < <(cat $RR_WORKSPACE_DIR/data)
-	fi
-	# loop over stored directories and recalculate score
-	for ((i = 0; i < ${#rr_dir_array[@]}; i++));
-	do
-		if [[ ! "${rr_dir_array[i]}" =~ $aging_reg_pattern ]]; then
-			printf "Invalid line in %s: \"%s\"\n" "$RR_WORKSPACE_DIR/data" "${rr_dir_array[i]}"
-			continue
-		fi
-		score=$(calculate_score)
-		rr_dir_array[i]="$score ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]}"
-	done
-	sort_rr_dir_array
 }
 
 rr_workspace_main () {
@@ -522,5 +366,3 @@ rr_workspace_main () {
 		change_workspace ${arguments[@]}
 	fi
 }
-
-on_start

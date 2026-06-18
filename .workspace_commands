@@ -1,6 +1,5 @@
 vim main.sh; source main.sh
-vim info.txt 
-vim data 
+vim info.txt
+vim data
 git log -10 --format=format:"%h %cs %s"
 git commit -m
-vim config
