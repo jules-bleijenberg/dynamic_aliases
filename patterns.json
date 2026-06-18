@@ -1,0 +1,10 @@
+[
+	{
+		"pattern": "*/Documents/books/*",
+		"file": "book_commands"
+	},
+	{
+		"pattern": "*/Documents/projects/bash/",
+		"file": "bash_commands"
+	}
+]

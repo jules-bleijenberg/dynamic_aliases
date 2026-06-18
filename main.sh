@@ -12,6 +12,7 @@ RR_NEXT_PAGE_KEY="u"
 RR_PREV_PAGE_KEY="i"
 RR_WORKSPACE_DIR=$HOME/.rerun_workspace
 RR_WORKSPACE_FILE=.workspace_commands
+RR_PATTERN_FILE=patterns.txt
 
 # Global dynamic variables
 rr_selected_option="INVALID"
@@ -23,11 +24,10 @@ rr_selected_option_index=0
 
 alias_keys=("${RR_OPTION_KEYS[@]}")
 rr_max_len=0
-rr_dir_item_id=0
-selected_option="INVALID"
-selected_option_key=" "
-aging_reg_pattern="^([0-9]+)\ ([0-9]+)\ ([0-9]+)\ (.+)$"
-aging_value_reg_pattern="^[0-9]+\ [0-9]+\ [0-9]+\ (.+)$"
+
+rr_alias_keys=()
+rr_alias_commands=()
+alias_reg_pattern="^([A-Za-z]+)\ (.+)$"
 
 # Print header
 rr_print_header () {	
@@ -126,7 +126,7 @@ swap_aliases () {
 }
 
 edit_rr_file() {
-	vim $RR_WORKSPACE_FILE
+	$EDITOR $RR_WORKSPACE_FILE
 	load_aliases
 }
 
@@ -174,7 +174,6 @@ add_alias_from_last_commands()
 
 add_custom_alias()
 {
-	# while [ true ]; do
 	last_executed_command=$(fc -rln -50 | cut -d " " -f 2- | fzf)
 	if [ $? -gt 0 ]; then
 		return
@@ -185,13 +184,8 @@ add_custom_alias()
 	if [ $? -gt 0 ]; then
 		return
 	fi
-	rr_array+=( "$last_executed_command" )
-	rr_alias_array+=( "$user_input" )
-  printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${alias_keys[rr_selected_option_index]}" "$selected_command"
-	# done
-	# if [ "$rr_array_modified" = false ]; then
-	# 	return
-	# fi
+	rr_alias_keys+=("$user_input")
+	rr_alias_commands+=("$last_executed_command")
 	set_print_aliases
 	save_workspace
 }
@@ -216,33 +210,80 @@ set_aliases()
   done
 }
 
+unset_aliases()
+{
+	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
+		unalias "${rr_alias_keys[i]}"
+	done
+	rr_alias_keys=()
+	rr_alias_commands=()
+}
+
 print_aliases() {
-	if [[ -s $PWD/$RR_WORKSPACE_FILE ]]; then
-		printf "%s\n" "$PWD"
-	else
-		printf "%s (no $RR_WORKSPACE_FILE file found)\n" "$PWD"
-	fi
-  for (( i = 0; i < rr_max_len; i++ )); do
-		alias_key=${alias_keys[$i]}
-    printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "$alias_key" "${rr_array[$i]}"
-  done
+	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
+		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
+    printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+	done
 }
 
 set_print_aliases()
 {
-	set_aliases
+	# set_aliases
 	print_aliases
+}
+
+load_aliases_from_file()
+{
+	if [ ! -s $1 ]; then
+		return
+	fi
+	while IFS= read -r line; do
+		# ADD: Duplicate overwriting
+		if [[ "$line " =~ $alias_reg_pattern ]]; then
+			# echo "${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
+			rr_alias_keys+=("${BASH_REMATCH[1]}")
+			rr_alias_commands+=("${BASH_REMATCH[2]}")
+		else
+			printf "${RR_BAD}Failed to parse %s\n" "$line"
+		fi
+	done < "$1"
+}
+
+load_aliases_from_pattern()
+{
+	for (( i=0; i<100; i++ )); do
+		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/patterns.json")
+		# if file_pattern not found
+		if [ $? -ge 1 ]; then
+			break
+		fi
+		if [[ "$PWD" == $file_pattern ]]; then
+			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/patterns.json")
+			load_aliases_from_file "$RR_WORKSPACE_DIR/pattern_files/$file"
+		fi
+	done
+	return
+	while IFS= read -r line; do
+		if [[ "$line " =~ $alias_reg_pattern ]]; then
+			# echo "${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
+			rr_alias_keys+=("${BASH_REMATCH[1]}")
+			rr_alias_commands+=("${BASH_REMATCH[2]}")
+		else
+			printf "${RR_BAD}Failed to parse %s\n" "$line"
+		fi
+	done < "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE"
 }
 
 load_aliases()
 {
 	# check if there are commands stored in pwd dir
-	if [[ -s $PWD/$RR_WORKSPACE_FILE ]]
-	then
-		# load commands into array
-		mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
-		set_print_aliases
-	fi
+	unset_aliases
+	# load commands into array
+	load_aliases_from_file "$PWD/$RR_WORKSPACE_FILE"
+	# load commands from pattern files
+	load_aliases_from_pattern
+	# mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
+	set_print_aliases
 }
 
 add_alias()
@@ -287,42 +328,12 @@ remove_alias()
 save_workspace()
 {
 	# Assumes current directory is workspace
-	if [[ ${#rr_array[@]} -gt 0 ]];
-	then
-		printf "%s\n" "${rr_array[@]}" > $RR_WORKSPACE_FILE
-	else
-		rm $RR_WORKSPACE_FILE
-		printf "${RR_BAD}Removed workspace${RR_PRIMARY}\n"
+	if [ -s $PWD/$RR_WORKSPACE_FILE ]; then
+		rm $PWD/$RR_WORKSPACE_FILE
 	fi
-}
-
-move_workspace()
-{
-	if [[ $# -ne 2 ]]; then
-		printf "Moving a directory requires 2 directories\n"
-		return
-	fi
-	if [ ! -d $1 -o ! -d $2 ]; then
-		printf "Received invalid directory\n"
-		return
-	fi
-	start_directory=$(realpath $1)
-	end_directory=$(realpath $2)
-	# start with end directory so no double loop for BASH_REMATCH values
-	get_workspace_directory_id "$end_directory"
-	if [ $? -eq 0 ]; then
-		echo $end_directory
-		echo $end_directory_id
-		printf "%s is already a workspace directory\n" "$end_directory"
-		return
-	fi
-	end_directory_id=$rr_dir_item_id
-	get_workspace_directory_id "$start_directory"
-	start_directory_id=$rr_dir_item_id
-	if [ $? -gt 0 ]; then
-		printf "%s is not a workspace directory\n" "$start_directory"
-		return
-	fi
+	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
+    printf "%s %s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}" >> $PWD/$RR_WORKSPACE_FILE
+	done
 }
 
 rr_workspace_main () {
@@ -340,15 +351,9 @@ rr_workspace_main () {
 	# handle options
 	if [[ $options == *"h"* ]]; then
 		cat $RR_WORKSPACE_DIR/help.txt
-	elif [[ $options == *"m"* ]]; then
-		move_workspace ${arguments[@]}
-	elif [[ $options == *"d"* ]]; then
-		remove_workspace ${arguments[@]}
 	elif [[ $options == *"e"* ]]; then
 		edit_rr_file
 	elif [[ $options == *"l"* ]]; then
-		print_workspaces
-	elif [[ $options == *"i"* ]]; then
 		print_aliases
 	elif [[ $options == *"s"* ]]; then
 		swap_aliases ${arguments[@]}
@@ -356,13 +361,5 @@ rr_workspace_main () {
 		add_alias
 	elif [[ $options == *"o"* ]]; then
 		add_alias_from_last_commands
-	else
-		if [ $# -eq 0 ]; then
-			arguments+="$(print_workspaces | $RR_FZF_COMMAND)"
-			if [ $? -gt 0 ]; then
-				return
-			fi
-		fi
-		change_workspace ${arguments[@]}
 	fi
 }
