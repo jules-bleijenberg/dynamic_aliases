@@ -105,6 +105,16 @@ rr_select_array_item()
 	done
 }
 
+rr_swap_array_items()
+{
+	local -n array=$1 
+	first_index=$2
+	second_index=$3
+	copy_elem="${array[$second_index]}"
+	array[$second_index]="${array[$first_index]}"
+	array[$first_index]="${copy_elem}"
+}
+
 swap_aliases () {
 	if [[ $# -lt 2 ]]; then
 		echo "Swap aliases requires 2 aliases as arguments"
@@ -112,21 +122,28 @@ swap_aliases () {
 	fi
 	first_element=$1
 	second_element=$2
-	first_element_index=$(rr_get_item_index alias_keys $first_element)
-	second_element_index=$(rr_get_item_index alias_keys $second_element)
-	if [ $first_element_index -lt 0 -o $first_element_index -ge $rr_max_len -o $second_element_index -lt 0 -o $second_element_index -ge $rr_max_len -o $first_element_index -eq $second_element_index ]; then
+	first_element_index=$(rr_get_item_index rr_alias_keys $first_element)
+	second_element_index=$(rr_get_item_index rr_alias_keys $second_element)
+	if [ $first_element_index -lt 0 -o $first_element_index -ge ${#rr_alias_keys[@]} -o $second_element_index -lt 0 -o $second_element_index -ge ${#rr_alias_keys[@]} ]; then
 		echo "Invalid alias parameter"
 		return
 	fi
-	copy_elem="${rr_array[$second_element_index]}"
-	rr_array[$second_element_index]="${rr_array[$first_element_index]}"
-	rr_array[$first_element_index]="${copy_elem}"
+	if [ $first_element_index -eq $second_element_index ]; then
+		return
+	fi
+	rr_swap_array_items rr_alias_commands first_element_index second_element_index
+	# copy_elem="${rr_array[$second_element_index]}"
+	#	rr_array[$second_element_index]="${rr_array[$first_element_index]}"
+	#	rr_array[$first_element_index]="${copy_elem}"
 	set_print_aliases
 	save_workspace
 }
 
 edit_rr_file() {
 	$EDITOR $RR_WORKSPACE_FILE
+	if [ -e $RR_WORKSPACE_FILE -a ! -s $RR_WORKSPACE_FILE ]; then
+		rm $RR_WORKSPACE_FILE
+	fi
 	load_aliases
 }
 
@@ -168,11 +185,11 @@ add_alias_from_last_commands()
 	if [ "$rr_array_modified" = false ]; then
 		return
 	fi
-	set_print_aliases
+	print_aliases
 	save_workspace
 }
 
-add_custom_alias()
+add_alias()
 {
 	last_executed_command=$(fc -rln -50 | cut -d " " -f 2- | fzf)
 	if [ $? -gt 0 ]; then
@@ -219,17 +236,11 @@ unset_aliases()
 	rr_alias_commands=()
 }
 
-print_aliases() {
+set_print_aliases() {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
     printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
 	done
-}
-
-set_print_aliases()
-{
-	# set_aliases
-	print_aliases
 }
 
 load_aliases_from_file()
@@ -241,8 +252,13 @@ load_aliases_from_file()
 		# ADD: Duplicate overwriting
 		if [[ "$line " =~ $alias_reg_pattern ]]; then
 			# echo "${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
-			rr_alias_keys+=("${BASH_REMATCH[1]}")
-			rr_alias_commands+=("${BASH_REMATCH[2]}")
+			alias_index=$(rr_get_item_index rr_alias_keys "${BASH_REMATCH[1]}")
+			if [ $alias_index -ge 0 ]; then
+				rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
+			else
+				rr_alias_keys+=("${BASH_REMATCH[1]}")
+				rr_alias_commands+=("${BASH_REMATCH[2]}")
+			fi
 		else
 			printf "${RR_BAD}Failed to parse %s\n" "$line"
 		fi
@@ -251,7 +267,8 @@ load_aliases_from_file()
 
 load_aliases_from_pattern()
 {
-	for (( i=0; i<100; i++ )); do
+	i=0
+	while true; do
 		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/patterns.json")
 		# if file_pattern not found
 		if [ $? -ge 1 ]; then
@@ -261,50 +278,20 @@ load_aliases_from_pattern()
 			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/patterns.json")
 			load_aliases_from_file "$RR_WORKSPACE_DIR/pattern_files/$file"
 		fi
+		i=$((i+1))
 	done
-	return
-	while IFS= read -r line; do
-		if [[ "$line " =~ $alias_reg_pattern ]]; then
-			# echo "${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
-			rr_alias_keys+=("${BASH_REMATCH[1]}")
-			rr_alias_commands+=("${BASH_REMATCH[2]}")
-		else
-			printf "${RR_BAD}Failed to parse %s\n" "$line"
-		fi
-	done < "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE"
 }
 
 load_aliases()
 {
 	# check if there are commands stored in pwd dir
 	unset_aliases
-	# load commands into array
-	load_aliases_from_file "$PWD/$RR_WORKSPACE_FILE"
 	# load commands from pattern files
 	load_aliases_from_pattern
+	# load commands from file
+	load_aliases_from_file "$PWD/$RR_WORKSPACE_FILE"
 	# mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
 	set_print_aliases
-}
-
-add_alias()
-{
-	# get last executed command
-	last_executed_command=$(fc -ln -2 | head -1 | cut -d " " -f 2-)
-	# check if .workspace_commands file exists in pwd dir
-	if [[ -s $PWD/$RR_WORKSPACE_FILE ]]
-	then
-		# append last executed command
-		local -n _rr_array="rr_array"
-		rr_array=("${rr_array[@]}" "${last_executed_command}")
-	else
-		# create new rr_array
-		printf "${RR_GOOD}Created workspace${RR_PRIMARY}\n"
-		rr_array=("${last_executed_command}")
-	fi
-	#	rr_array=("${last_executed_command}" "${rr_array[@]:0:8}")
-	# reload aliases
-	set_print_aliases
-	save_workspace
 }
 
 remove_alias()
@@ -354,7 +341,7 @@ rr_workspace_main () {
 	elif [[ $options == *"e"* ]]; then
 		edit_rr_file
 	elif [[ $options == *"l"* ]]; then
-		print_aliases
+		set_print_aliases
 	elif [[ $options == *"s"* ]]; then
 		swap_aliases ${arguments[@]}
 	elif [[ $options == *"a"* ]]; then

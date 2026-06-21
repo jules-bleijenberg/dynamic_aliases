@@ -1,5 +1,0 @@
-a vim main.sh; source main.sh; load_aliases   
-s vim info.txt   
-d git log -10 --format=format:"%h %cs %s"   
-f git commit -m   
-g vim patterns.json 
