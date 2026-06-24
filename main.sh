@@ -4,35 +4,16 @@
 RR_GOOD='\033[0;92m';
 RR_BAD='\033[0;91m';
 RR_PRIMARY='\033[0;97m';
-
+RR_BLUE='\033[0;96m';
 # Global veriables
-RR_FZF_COMMAND='fzf --layout reverse --border'
-RR_OPTION_KEYS=("a" "s" "d" "f" "g" "h" "j" "k" "l")
-RR_NEXT_PAGE_KEY="u"
-RR_PREV_PAGE_KEY="i"
 RR_WORKSPACE_DIR=$HOME/.rerun_workspace
 RR_WORKSPACE_FILE=.workspace_commands
-RR_PATTERN_FILE=patterns.txt
-
-# Global dynamic variables
-rr_selected_option="INVALID"
-rr_selected_option_index=0
-
-# Workspace oriented (one file per folder)
-#		A workspace is usefull in a directory in which the same commands are often used
-#		A workspace directory contains a .workspace_commands file with the commands
-
-alias_keys=("${RR_OPTION_KEYS[@]}")
-rr_max_len=0
-
+RR_PATTERN_FILE=patterns.json
+ALIAS_REG_PATTERN="^([A-Za-z]+)\ (.+)$"
+# Dynamic veriables
 rr_alias_keys=()
 rr_alias_commands=()
-alias_reg_pattern="^([A-Za-z]+)\ (.+)$"
-
-# Print header
-rr_print_header () {	
-	printf "${RR_GOOD}--- %s ---${RR_PRIMARY}\n" "$1";
-}
+rr_local_alias_len=0
 
 # Get index of item in array
 rr_get_item_index() {
@@ -40,7 +21,7 @@ rr_get_item_index() {
 	needle=$2
 	for ((i = 0; i < ${#hay[@]}; i++));
 	do
-	 	if [[ "${RR_OPTION_KEYS[i]}" = "$needle" ]];
+	 	if [[ "${hay[i]}" = "$needle" ]];
 	 	then
 			echo $i
 			return
@@ -59,52 +40,7 @@ rr_get_smallest_number()
 	fi
 }
 
-# Pick an item interactively from array
-rr_select_array_item()
-{
-	if [ $# -eq 0 ]; then
-		return
-	fi
-	local -n _array=$1 
-	# check assignment and array size
-	if [[ $? -ne 0 || ${#_array[@]} -eq 0 ]]; then
-		return
-	fi
-	loop_size=$(rr_get_smallest_number ${#RR_OPTION_KEYS[@]} ${#_array[@]})
-	tput sc
-	header="Options"
-	if [ $# -ge 2 ]; then
-		header="$2"
-	fi
-	rr_print_header "$header"
-	# print options
-	for ((i = 0; i < $loop_size; i++));
-	do
-		printf "${GREEN}%s) ${NO_COLOR}%s\n" "${RR_OPTION_KEYS[i]}" "${_array[i]}";
-	done
-	printf ">"
-	rr_selected_option="INVALID"
-	while true; do
-		# get user input
-		read -rs -n 1 user_input
-		# quit interactive prompt
-		if [[ "${user_input}" = "q" ]]; then
-			tput rc ed
-			# printf "${GREEN}Exited by user${NO_COLOR}\n"
-			rr_selected_option="EXIT"
-			return
-		fi
-		# check user input
-		rr_selected_option_index=$(rr_get_item_index RR_OPTION_KEYS $user_input)
-		if [ $rr_selected_option_index -ge 0 -a $rr_selected_option_index -lt $loop_size ]; then
-				rr_selected_option=${_array[rr_selected_option_index]}
-				tput rc ed
-				return
-		fi
-		tput bel
-	done
-}
-
+# swap two alias commands
 rr_swap_array_items()
 {
 	local -n array=$1 
@@ -142,51 +78,10 @@ swap_aliases () {
 edit_rr_file() {
 	$EDITOR $RR_WORKSPACE_FILE
 	if [ -e $RR_WORKSPACE_FILE -a ! -s $RR_WORKSPACE_FILE ]; then
+		# remove file if exists and empty
 		rm $RR_WORKSPACE_FILE
 	fi
 	load_aliases
-}
-
-add_alias_from_last_commands()
-{
-	# get last commands (excludine r commands)
-	grep_selection=$'^\t [r'
-	for i in "${!alias_keys[@]}"; do
-		grep_selection="$grep_selection${alias_keys[i]}"
-	done
-	grep_selection="${grep_selection}]"
-	last_executed_commands_string=$(fc -rln -50 | grep -ve "$grep_selection .*\|$grep_selection$")
-	#last_executed_commands_string=$(fc -rln -30 | grep -ve $'^\t r ')
-	# last_executed_commands_string=$(fc -rln -11 | tail -10)
-	IFS=$'\n'
-	read -r -d '' -a last_executed_commands <<< "$last_executed_commands_string"
-	unset IFS
-	for ((i = 0; i < ${#last_executed_commands[@]}; i++));
-	do
-		# remove padding
-		last_executed_commands[i]=$(echo "${last_executed_commands[i]}" | cut -d " " -f 2-)
-	done
-	rr_array_modified=false
-	while [ true ]; do
-		rr_select_array_item last_executed_commands "History Commands"
-		if [[ $rr_selected_option == "EXIT" ]]; then
-			break
-		fi
-		selected_command=$rr_selected_option
-		tmp_rr_array=("${rr_array[@]}" "<empty>")
-		rr_select_array_item tmp_rr_array "Overwrite Alias"
-		if [[ $rr_selected_option == "EXIT" ]]; then
-			break
-		fi
-		rr_array[$rr_selected_option_index]=$selected_command
-		rr_array_modified=true
-    printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${alias_keys[rr_selected_option_index]}" "$selected_command"
-	done
-	if [ "$rr_array_modified" = false ]; then
-		return
-	fi
-	print_aliases
-	save_workspace
 }
 
 add_alias()
@@ -207,26 +102,6 @@ add_alias()
 	save_workspace
 }
 
-set_aliases()
-{
-	# remove aliases of deleted elements
-  for (( i = 0; i < rr_max_len; i++ )); do
-		alias_key=${alias_keys[$i]}
-		unalias "$alias_key"
-  done
-	# get max alias size
-	if [[ ${#rr_array[@]} -le ${#alias_keys[@]} ]]; then
-		rr_max_len=${#rr_array[@]}
-	else
-		rr_max_len=${#alias_keys[@]}
-	fi
-	# set aliases and print them
-  for (( i = 0; i < rr_max_len; i++ )); do
-		alias_key=${alias_keys[$i]}
-		alias "$alias_key=${rr_array[$i]}"
-  done
-}
-
 unset_aliases()
 {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
@@ -239,7 +114,11 @@ unset_aliases()
 set_print_aliases() {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
-    printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+		if [ $i -lt $rr_local_alias_len ]; then
+			printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+		else
+			printf "$RR_BLUE%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+		fi
 	done
 }
 
@@ -250,14 +129,14 @@ load_aliases_from_file()
 	fi
 	while IFS= read -r line; do
 		# ADD: Duplicate overwriting
-		if [[ "$line " =~ $alias_reg_pattern ]]; then
+		if [[ "$line " =~ $ALIAS_REG_PATTERN ]]; then
 			# echo "${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
 			alias_index=$(rr_get_item_index rr_alias_keys "${BASH_REMATCH[1]}")
-			if [ $alias_index -ge 0 ]; then
-				rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
-			else
+			if [ $alias_index -lt 0 ]; then
 				rr_alias_keys+=("${BASH_REMATCH[1]}")
 				rr_alias_commands+=("${BASH_REMATCH[2]}")
+			# else
+			# 	rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
 			fi
 		else
 			printf "${RR_BAD}Failed to parse %s\n" "$line"
@@ -269,13 +148,13 @@ load_aliases_from_pattern()
 {
 	i=0
 	while true; do
-		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/patterns.json")
+		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
 		# if file_pattern not found
 		if [ $? -ge 1 ]; then
 			break
 		fi
 		if [[ "$PWD" == $file_pattern ]]; then
-			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/patterns.json")
+			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
 			load_aliases_from_file "$RR_WORKSPACE_DIR/pattern_files/$file"
 		fi
 		i=$((i+1))
@@ -286,10 +165,11 @@ load_aliases()
 {
 	# check if there are commands stored in pwd dir
 	unset_aliases
-	# load commands from pattern files
-	load_aliases_from_pattern
 	# load commands from file
 	load_aliases_from_file "$PWD/$RR_WORKSPACE_FILE"
+	rr_local_alias_len=${#rr_alias_keys[@]}
+	# load commands from pattern files
+	load_aliases_from_pattern
 	# mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
 	set_print_aliases
 }
@@ -297,7 +177,7 @@ load_aliases()
 remove_alias()
 {
 	# if param is valid array index remove it
-	if [[ $1 -ge $rr_max_len && $1 -lt 0 ]]; then
+	if [[ $1 -lt 0 ]]; then
 		return
 	fi
 	new_rr_array=( )
@@ -346,7 +226,5 @@ rr_workspace_main () {
 		swap_aliases ${arguments[@]}
 	elif [[ $options == *"a"* ]]; then
 		add_alias
-	elif [[ $options == *"o"* ]]; then
-		add_alias_from_last_commands
 	fi
 }
