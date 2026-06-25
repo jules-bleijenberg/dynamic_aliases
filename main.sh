@@ -164,6 +164,9 @@ load_aliases_from_file()
 		if [[ "$line " =~ $ALIAS_REG_PATTERN ]]; then
 			# echo "read: ${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
 			alias_index=$(rr_get_item_index "$aliases_name" "${BASH_REMATCH[1]}")
+			if [ $alias_index -lt 0 -a "$1" == "rr_pattern_alias" ]; then
+				alias_index=$(rr_get_item_index "rr_alias_keys" "${BASH_REMATCH[1]}")
+			fi
 			#alias_index=-1
 			if [ $alias_index -lt 0 ]; then
 				aliases+=("${BASH_REMATCH[1]}")
