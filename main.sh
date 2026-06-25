@@ -2,9 +2,10 @@
 
 # Global colors
 RR_GOOD='\033[0;92m';
+#RR_GOOD='\033[0;92m';
 RR_BAD='\033[0;91m';
 RR_PRIMARY='\033[0;97m';
-RR_BLUE='\033[0;96m';
+RR_BLUE='\033[0;34m';
 # Global veriables
 RR_WORKSPACE_DIR=$HOME/.rerun_workspace
 RR_WORKSPACE_FILE=.workspace_commands
@@ -13,6 +14,8 @@ ALIAS_REG_PATTERN="^([A-Za-z]+)\ (.+)$"
 # Dynamic veriables
 rr_alias_keys=()
 rr_alias_commands=()
+rr_pattern_alias_keys=()
+rr_pattern_alias_commands=()
 rr_local_alias_len=0
 
 # Get index of item in array
@@ -86,6 +89,27 @@ edit_rr_file() {
 
 add_alias()
 {
+	if [ $# -le 1 ]; then
+		return
+	fi
+	if [[ "$@" =~ $ALIAS_REG_PATTERN ]]; then
+		alias_index=$(rr_get_item_index "$rr_alias_keys" "${BASH_REMATCH[1]}")
+		if [ $alias_index -lt 0 ]; then
+			rr_alias_keys+=("${BASH_REMATCH[1]}")
+			rr_alias_commands+=("${BASH_REMATCH[2]}")
+		else
+			rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
+		fi
+	else
+		printf "${RR_BAD}Failed to parse %s${RR_PRIMARY}\n" "$@"
+		return
+	fi
+	set_print_aliases
+	save_workspace
+}
+
+add_history_alias()
+{
 	last_executed_command=$(fc -rln -50 | cut -d " " -f 2- | fzf)
 	if [ $? -gt 0 ]; then
 		return
@@ -107,41 +131,50 @@ unset_aliases()
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		unalias "${rr_alias_keys[i]}"
 	done
+	for (( i=0; i<${#rr_pattern_alias_keys[@]}; i++ )); do
+		unalias "${rr_pattern_alias_keys[i]}"
+	done
 	rr_alias_keys=()
 	rr_alias_commands=()
+	rr_pattern_alias_keys=()
+	rr_pattern_alias_commands=()
 }
 
 set_print_aliases() {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
-		if [ $i -lt $rr_local_alias_len ]; then
-			printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
-		else
-			printf "$RR_BLUE%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
-		fi
+		printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+	done
+	for (( i=0; i<${#rr_pattern_alias_keys[@]}; i++ )); do
+		alias "${rr_pattern_alias_keys[i]}=${rr_pattern_alias_commands[i]}"
+		printf "$RR_BLUE%s) $RR_PRIMARY%s\n" "${rr_pattern_alias_keys[i]}" "${rr_pattern_alias_commands[i]}"
 	done
 }
 
 load_aliases_from_file()
 {
-	if [ ! -s $1 ]; then
+	if [ ! -s $2 ]; then
 		return
 	fi
+	aliases_name="$1_keys"
+	local -n aliases="$1_keys"
+	local -n commands="$1_commands"
 	while IFS= read -r line; do
 		# ADD: Duplicate overwriting
 		if [[ "$line " =~ $ALIAS_REG_PATTERN ]]; then
-			# echo "${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
-			alias_index=$(rr_get_item_index rr_alias_keys "${BASH_REMATCH[1]}")
+			# echo "read: ${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
+			alias_index=$(rr_get_item_index "$aliases_name" "${BASH_REMATCH[1]}")
+			#alias_index=-1
 			if [ $alias_index -lt 0 ]; then
-				rr_alias_keys+=("${BASH_REMATCH[1]}")
-				rr_alias_commands+=("${BASH_REMATCH[2]}")
+				aliases+=("${BASH_REMATCH[1]}")
+				commands+=("${BASH_REMATCH[2]}")
 			# else
 			# 	rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
 			fi
 		else
-			printf "${RR_BAD}Failed to parse %s\n" "$line"
+		printf "${RR_BAD}Failed to parse %s${RR_PRIMARY}\n" "$line"
 		fi
-	done < "$1"
+	done < "$2"
 }
 
 load_aliases_from_pattern()
@@ -155,7 +188,7 @@ load_aliases_from_pattern()
 		fi
 		if [[ "$PWD" == $file_pattern ]]; then
 			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
-			load_aliases_from_file "$RR_WORKSPACE_DIR/pattern_files/$file"
+			load_aliases_from_file rr_pattern_alias "$RR_WORKSPACE_DIR/pattern_files/$file"
 		fi
 		i=$((i+1))
 	done
@@ -166,8 +199,7 @@ load_aliases()
 	# check if there are commands stored in pwd dir
 	unset_aliases
 	# load commands from file
-	load_aliases_from_file "$PWD/$RR_WORKSPACE_FILE"
-	rr_local_alias_len=${#rr_alias_keys[@]}
+	load_aliases_from_file rr_alias "$PWD/$RR_WORKSPACE_FILE"
 	# load commands from pattern files
 	load_aliases_from_pattern
 	# mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
@@ -176,18 +208,23 @@ load_aliases()
 
 remove_alias()
 {
-	# if param is valid array index remove it
-	if [[ $1 -lt 0 ]]; then
+	alias_index=$(rr_get_item_index rr_alias_keys "$1")
+	if [[ $alias_index -lt 0 ]]; then
+		printf "${RR_BAD}Alias '%s' not found${RR_PRIMARY}\n" "$1"
 		return
 	fi
-	new_rr_array=( )
-	for i in "${!rr_array[@]}"; do
-		if [[ $1 -ne $i ]]; then
-			new_rr_array+=( "${rr_array[i]}" )
+	new_rr_alias_keys=( )
+	new_rr_alias_commands=( )
+	for (( i = 0; i < ${#rr_alias_keys[@]}; i++ )); do
+		if [[ $i -ne $alias_index ]]; then
+			new_rr_alias_keys+=( "${rr_alias_keys[i]}" )
+			new_rr_alias_commands+=( "${rr_alias_commands[i]}" )
 		fi
 	done
-	rr_array=("${new_rr_array[@]}")
-	unset new_rr_array
+	rr_alias_keys=("${new_rr_alias_keys[@]}")
+	rr_alias_commands=("${new_rr_alias_commands[@]}")
+	unset new_rr_alias_keys
+	unset new_rr_alias_commands
 	set_print_aliases
 	save_workspace
 }
@@ -198,7 +235,7 @@ save_workspace()
 	if [ -s $PWD/$RR_WORKSPACE_FILE ]; then
 		rm $PWD/$RR_WORKSPACE_FILE
 	fi
-	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
+	for (( i = 0; i < ${#rr_alias_keys[@]}; i++ )); do
     printf "%s %s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}" >> $PWD/$RR_WORKSPACE_FILE
 	done
 }
@@ -225,6 +262,8 @@ rr_workspace_main () {
 	elif [[ $options == *"s"* ]]; then
 		swap_aliases ${arguments[@]}
 	elif [[ $options == *"a"* ]]; then
-		add_alias
+		add_alias "${arguments[@]}"
+	elif [[ $options == *"r"* ]]; then
+		remove_alias $arguments
 	fi
 }
