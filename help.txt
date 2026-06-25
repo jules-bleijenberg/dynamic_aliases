@@ -1,6 +1,7 @@
-Options
--h) shows this help page
--s) swaps aliases (e.g. r -s a s)
--l) list aliases
--e) edit .rr_array
--o) interactively overwrite commands with last 10 history commands
+usage: rr_workspace_main [option] [argument ...]
+  -h Print help
+  -e Edit workspace file
+  -l List aliases
+  -s Swap aliases
+  -a Add alias
+  -r Remove alias

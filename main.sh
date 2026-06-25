@@ -241,29 +241,27 @@ save_workspace()
 }
 
 rr_workspace_main () {
-	arguments=( )
-	options=""
-	# split options and arguments
-	for argument in $@
-	do
-		if [[ $argument == "-"* ]]; then
-			options="$options$argument"
-		else
-			arguments+=( $argument )
-		fi
-	done
-	# handle options
-	if [[ $options == *"h"* ]]; then
-		cat $RR_WORKSPACE_DIR/help.txt
-	elif [[ $options == *"e"* ]]; then
-		edit_rr_file
-	elif [[ $options == *"l"* ]]; then
-		set_print_aliases
-	elif [[ $options == *"s"* ]]; then
-		swap_aliases ${arguments[@]}
-	elif [[ $options == *"a"* ]]; then
-		add_alias "${arguments[@]}"
-	elif [[ $options == *"r"* ]]; then
-		remove_alias $arguments
+	if [ $# -eq 0 ]; then
+		return
 	fi
+	case $1 in
+		"-h")
+			cat $RR_WORKSPACE_DIR/help.txt
+			;;
+		"-e")
+			edit_rr_file
+			;;
+		"-l")
+			set_print_aliases
+			;;
+		"-s")
+			swap_aliases ${@:2}
+			;;
+		"-a")
+			add_alias "${@:2}"
+			;;
+		"-r")
+			remove_alias ${@:2}
+			;;
+	esac
 }
