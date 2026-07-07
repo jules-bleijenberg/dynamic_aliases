@@ -2,6 +2,6 @@ usage: rr_workspace_main [option] [argument ...]
   -h Print help
   -e Edit workspace file
   -l List aliases
-  -s Swap aliases
   -a Add alias
   -r Remove alias
+  -s Swap two commands using their aliases

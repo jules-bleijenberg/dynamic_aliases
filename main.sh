@@ -16,7 +16,7 @@ rr_alias_keys=()
 rr_alias_commands=()
 rr_pattern_alias_keys=()
 rr_pattern_alias_commands=()
-rr_local_alias_len=0
+rr_alias_folder=""
 
 # Get index of item in array
 rr_get_item_index() {
@@ -191,7 +191,7 @@ load_aliases_from_pattern()
 		fi
 		if [[ "$PWD" == $file_pattern ]]; then
 			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
-			load_aliases_from_file rr_pattern_alias "$RR_WORKSPACE_DIR/pattern_files/$file"
+			load_aliases_from_file rr_pattern_alias "$RR_WORKSPACE_DIR/workspaces/$file"
 		fi
 		i=$((i+1))
 	done
@@ -203,6 +203,7 @@ load_aliases()
 	unset_aliases
 	# load commands from file
 	load_aliases_from_file rr_alias "$PWD/$RR_WORKSPACE_FILE"
+	rr_alias_folder=$(pwd)
 	# load commands from pattern files
 	load_aliases_from_pattern
 	# mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
@@ -235,6 +236,10 @@ remove_alias()
 save_workspace()
 {
 	# Assumes current directory is workspace
+	if [ "$rr_alias_folder" != "$(pwd)" ]; then
+		printf "Unable to save aliases, not in correct directory\n"
+		return
+	fi
 	if [ -s $PWD/$RR_WORKSPACE_FILE ]; then
 		rm $PWD/$RR_WORKSPACE_FILE
 	fi
@@ -248,9 +253,6 @@ rr_workspace_main () {
 		return
 	fi
 	case $1 in
-		"-h")
-			cat $RR_WORKSPACE_DIR/help.txt
-			;;
 		"-e")
 			edit_rr_file
 			;;
@@ -265,6 +267,9 @@ rr_workspace_main () {
 			;;
 		"-r")
 			remove_alias ${@:2}
+			;;
+		*)
+			cat $RR_WORKSPACE_DIR/help.txt
 			;;
 	esac
 }
