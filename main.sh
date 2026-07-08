@@ -50,7 +50,7 @@ rr_swap_array_items() {
 	array[$first_index]="${copy_elem}"
 }
 
-swap_aliases() {
+rr_swap_aliases() {
 	if [[ $# -lt 2 ]]; then
 		echo "swap aliases requires 2 aliases as arguments"
 		return
@@ -70,24 +70,24 @@ swap_aliases() {
 	# copy_elem="${rr_array[$second_element_index]}"
 	#	rr_array[$second_element_index]="${rr_array[$first_element_index]}"
 	#	rr_array[$first_element_index]="${copy_elem}"
-	set_print_aliases
-	save_workspace
+	rr_set_print_aliases
+	rr_save_workspace
 }
 
-edit_rr_file() {
+rr_edit_rr_file() {
 	$EDITOR $RR_WORKSPACE_FILE
 	if [ -e $RR_WORKSPACE_FILE -a ! -s $RR_WORKSPACE_FILE ]; then
 		# remove file if exists and empty
 		rm $RR_WORKSPACE_FILE
 	fi
-	load_aliases_pwd
+	rr_load_aliases_pwd
 }
 
-add_alias() {
+rr_add_alias() {
 	if [ $# -lt 1 ]; then
 		return
 	fi
-	handle_directory_conflict
+	rr_handle_directory_conflict
 	if [ $? -gt 0 ]; then
 		return
 	fi
@@ -103,11 +103,11 @@ add_alias() {
 		printf "failed to parse %s\n" "$@"
 		return
 	fi
-	set_print_aliases
-	save_workspace
+	rr_set_print_aliases
+	rr_save_workspace
 }
 
-unset_aliases() {
+rr_unset_aliases() {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		unalias "${rr_alias_keys[i]}"
 	done
@@ -120,7 +120,7 @@ unset_aliases() {
 	rr_pattern_alias_commands=()
 }
 
-set_print_aliases() {
+rr_set_print_aliases() {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
 		printf "$RR_GREEN%s) $RR_RESET%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
@@ -131,7 +131,7 @@ set_print_aliases() {
 	done
 }
 
-load_aliases_from_file() {
+rr_load_aliases_from_file() {
 	if [ ! -s $2 ]; then
 		return
 	fi
@@ -159,7 +159,7 @@ load_aliases_from_file() {
 	done < "$2"
 }
 
-load_aliases_from_pattern() {
+rr_load_aliases_from_pattern() {
 	i=0
 	while true; do
 		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
@@ -169,25 +169,25 @@ load_aliases_from_pattern() {
 		fi
 		if [[ "$PWD" == $file_pattern ]]; then
 			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
-			load_aliases_from_file rr_pattern_alias "$RR_WORKSPACE_DIR/workspaces/$file"
+			rr_load_aliases_from_file rr_pattern_alias "$RR_WORKSPACE_DIR/workspaces/$file"
 		fi
 		i=$((i+1))
 	done
 }
 
-load_aliases_pwd() {
+rr_load_aliases_pwd() {
 	# check if there are commands stored in pwd dir
-	unset_aliases
+	rr_unset_aliases
 	# load commands from file
-	load_aliases_from_file rr_alias "$PWD/$RR_WORKSPACE_FILE"
+	rr_load_aliases_from_file rr_alias "$PWD/$RR_WORKSPACE_FILE"
 	rr_alias_folder=$PWD
 	# load commands from pattern files
-	load_aliases_from_pattern
+	rr_load_aliases_from_pattern
 	# mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
-	set_print_aliases
+	rr_set_print_aliases
 }
 
-handle_directory_conflict() {
+rr_handle_directory_conflict() {
 	if [ "$rr_alias_folder" == "$PWD" ]; then
 		return 0
 	fi
@@ -205,7 +205,7 @@ handle_directory_conflict() {
 			;;
 		"l")
 			# works because it sets rr_alias_folder to pwd
-			load_aliases_pwd
+			rr_load_aliases_pwd
 			;;
 		"o")
 			rr_alias_folder=$PWD
@@ -218,8 +218,8 @@ handle_directory_conflict() {
 	return 0
 }
 
-remove_alias() {
-	handle_directory_conflict
+rr_remove_alias() {
+	rr_handle_directory_conflict
 	if [ $? -gt 0 ]; then
 		return
 	fi
@@ -242,7 +242,7 @@ remove_alias() {
 	unset new_rr_alias_commands
 }
 
-save_workspace() {
+rr_save_workspace() {
 	if [ -s $rr_alias_folder/$RR_WORKSPACE_FILE ]; then
 		rm $rr_alias_folder/$RR_WORKSPACE_FILE
 	fi
@@ -251,7 +251,7 @@ save_workspace() {
 	done
 }
 
-print_help() {
+rr_print_help() {
 	cat <<EOF
 usage: rr_workspace_main [option] [argument ...]
   -h Print help
@@ -265,31 +265,31 @@ EOF
 
 rr_workspace_main() {
 	if [ $# -eq 0 ]; then
-		load_aliases_pwd
+		rr_load_aliases_pwd
 		return
 	fi
 	case $1 in
 		"-e")
-			edit_rr_file
+			rr_edit_rr_file
 			;;
 		"-l")
-			set_print_aliases
+			rr_set_print_aliases
 			;;
 		"-s")
-			swap_aliases ${@:2}
+			rr_swap_aliases ${@:2}
 			;;
 		"-a")
-			add_alias "${@:2}"
+			rr_add_alias "${@:2}"
 			;;
 		"-r")
 			for alias_to_remove in "${@:2}"; do
-				remove_alias "$alias_to_remove"
+				rr_remove_alias "$alias_to_remove"
 			done
-			set_print_aliases
-			save_workspace
+			rr_set_print_aliases
+			rr_save_workspace
 			;;
 		"-h" | "--help")
-			print_help
+			rr_print_help
 			;;
 		*)
 			printf "invalid usage: rr_workspace_main [option] [argument ...]\n"
