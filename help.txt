@@ -1,9 +1,0 @@
-usage: rr_workspace_main [option] [argument ...]
-  -h Print help
-  -e Edit workspace file
-  -l List aliases
-  -a Add alias
-  -r Remove alias
-  -s Swap two commands using their aliases
-Alias paattern
-  alias_pattern=^([A-Za-z0-9_]+)\ (.+)$

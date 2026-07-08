@@ -1,10 +1,9 @@
 #! /usr/bin/bash
 
 # Global colors
-RR_GOOD='\033[0;92m';
-#RR_GOOD='\033[0;92m';
-RR_PRIMARY='\033[0;97m';
-RR_BLUE='\033[0;34m';
+RR_RESET='\e[0m' #'\033[0;97m';
+RR_GREEN='\033[0;92m'
+RR_BLUE='\033[0;34m'
 # Global veriables
 RR_WORKSPACE_DIR=$HOME/.rerun_workspace
 RR_WORKSPACE_FILE=.workspace_commands
@@ -33,8 +32,7 @@ rr_get_item_index() {
 }
 
 # Get smallest number :)
-rr_get_smallest_number()
-{
+rr_get_smallest_number() {
 	if [ $1 -le $2 ]; then
 		echo $1
 	else
@@ -43,8 +41,7 @@ rr_get_smallest_number()
 }
 
 # swap two alias commands
-rr_swap_array_items()
-{
+rr_swap_array_items() {
 	local -n array=$1 
 	first_index=$2
 	second_index=$3
@@ -53,7 +50,7 @@ rr_swap_array_items()
 	array[$first_index]="${copy_elem}"
 }
 
-swap_aliases () {
+swap_aliases() {
 	if [[ $# -lt 2 ]]; then
 		echo "swap aliases requires 2 aliases as arguments"
 		return
@@ -86,9 +83,8 @@ edit_rr_file() {
 	load_aliases_pwd
 }
 
-add_alias()
-{
-	if [ $# -le 1 ]; then
+add_alias() {
+	if [ $# -lt 1 ]; then
 		return
 	fi
 	handle_directory_conflict
@@ -111,26 +107,7 @@ add_alias()
 	save_workspace
 }
 
-add_history_alias()
-{
-	last_executed_command=$(fc -rln -50 | cut -d " " -f 2- | fzf)
-	if [ $? -gt 0 ]; then
-		return
-	fi
-	printf "%s\n" "$last_executed_command"
-	read -e -p 'alias>' user_input
-	# parse input for valid alias
-	if [ $? -gt 0 ]; then
-		return
-	fi
-	rr_alias_keys+=("$user_input")
-	rr_alias_commands+=("$last_executed_command")
-	set_print_aliases
-	save_workspace
-}
-
-unset_aliases()
-{
+unset_aliases() {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		unalias "${rr_alias_keys[i]}"
 	done
@@ -146,16 +123,15 @@ unset_aliases()
 set_print_aliases() {
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
 		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
-		printf "$RR_GOOD%s) $RR_PRIMARY%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+		printf "$RR_GREEN%s) $RR_RESET%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
 	done
 	for (( i=0; i<${#rr_pattern_alias_keys[@]}; i++ )); do
 		alias "${rr_pattern_alias_keys[i]}=${rr_pattern_alias_commands[i]}"
-		printf "$RR_BLUE%s) $RR_PRIMARY%s\n" "${rr_pattern_alias_keys[i]}" "${rr_pattern_alias_commands[i]}"
+		printf "$RR_BLUE%s) $RR_RESET%s\n" "${rr_pattern_alias_keys[i]}" "${rr_pattern_alias_commands[i]}"
 	done
 }
 
-load_aliases_from_file()
-{
+load_aliases_from_file() {
 	if [ ! -s $2 ]; then
 		return
 	fi
@@ -183,8 +159,7 @@ load_aliases_from_file()
 	done < "$2"
 }
 
-load_aliases_from_pattern()
-{
+load_aliases_from_pattern() {
 	i=0
 	while true; do
 		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
@@ -200,8 +175,7 @@ load_aliases_from_pattern()
 	done
 }
 
-load_aliases_pwd()
-{
+load_aliases_pwd() {
 	# check if there are commands stored in pwd dir
 	unset_aliases
 	# load commands from file
@@ -213,8 +187,7 @@ load_aliases_pwd()
 	set_print_aliases
 }
 
-handle_directory_conflict()
-{
+handle_directory_conflict() {
 	if [ "$rr_alias_folder" == "$PWD" ]; then
 		return 0
 	fi
@@ -245,8 +218,7 @@ handle_directory_conflict()
 	return 0
 }
 
-remove_alias()
-{
+remove_alias() {
 	handle_directory_conflict
 	if [ $? -gt 0 ]; then
 		return
@@ -270,8 +242,7 @@ remove_alias()
 	unset new_rr_alias_commands
 }
 
-save_workspace()
-{
+save_workspace() {
 	if [ -s $rr_alias_folder/$RR_WORKSPACE_FILE ]; then
 		rm $rr_alias_folder/$RR_WORKSPACE_FILE
 	fi
@@ -280,7 +251,19 @@ save_workspace()
 	done
 }
 
-rr_workspace_main () {
+print_help() {
+	cat <<EOF
+usage: rr_workspace_main [option] [argument ...]
+  -h Print help
+  -e Edit workspace file and reload aliases
+  -l List aliases
+  -a Add alias
+  -r Remove alias
+  -s Swap two commands using their aliases
+EOF
+}
+
+rr_workspace_main() {
 	if [ $# -eq 0 ]; then
 		load_aliases_pwd
 		return
@@ -305,8 +288,11 @@ rr_workspace_main () {
 			set_print_aliases
 			save_workspace
 			;;
+		"-h" | "--help")
+			print_help
+			;;
 		*)
-			cat $RR_WORKSPACE_DIR/help.txt
+			printf "invalid usage: rr_workspace_main [option] [argument ...]\n"
 			;;
 	esac
 }
