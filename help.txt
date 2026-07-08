@@ -5,3 +5,5 @@ usage: rr_workspace_main [option] [argument ...]
   -a Add alias
   -r Remove alias
   -s Swap two commands using their aliases
+Alias paattern
+  alias_pattern=^([A-Za-z0-9_]+)\ (.+)$

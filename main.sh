@@ -3,14 +3,13 @@
 # Global colors
 RR_GOOD='\033[0;92m';
 #RR_GOOD='\033[0;92m';
-RR_BAD='\033[0;91m';
 RR_PRIMARY='\033[0;97m';
 RR_BLUE='\033[0;34m';
 # Global veriables
 RR_WORKSPACE_DIR=$HOME/.rerun_workspace
 RR_WORKSPACE_FILE=.workspace_commands
 RR_PATTERN_FILE=patterns.json
-ALIAS_REG_PATTERN="^([A-Za-z]+)\ (.+)$"
+ALIAS_REG_PATTERN="^([A-Za-z0-9_]+)\ (.+)$"
 # Dynamic veriables
 rr_alias_keys=()
 rr_alias_commands=()
@@ -101,7 +100,7 @@ add_alias()
 			rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
 		fi
 	else
-		printf "${RR_BAD}Failed to parse %s${RR_PRIMARY}\n" "$@"
+		printf "Failed to parse %s\n" "$@"
 		return
 	fi
 	set_print_aliases
@@ -175,7 +174,7 @@ load_aliases_from_file()
 			# 	rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
 			fi
 		else
-		printf "${RR_BAD}Failed to parse %s${RR_PRIMARY}\n" "$line"
+		printf "Failed to parse %s\n" "$line"
 		fi
 	done < "$2"
 }
@@ -214,7 +213,7 @@ remove_alias()
 {
 	alias_index=$(rr_get_item_index rr_alias_keys "$1")
 	if [[ $alias_index -lt 0 ]]; then
-		printf "${RR_BAD}Alias '%s' not found${RR_PRIMARY}\n" "$1"
+		printf "Alias '%s' not found\n" "$1"
 		return
 	fi
 	new_rr_alias_keys=( )
@@ -229,8 +228,6 @@ remove_alias()
 	rr_alias_commands=("${new_rr_alias_commands[@]}")
 	unset new_rr_alias_keys
 	unset new_rr_alias_commands
-	set_print_aliases
-	save_workspace
 }
 
 save_workspace()
@@ -266,7 +263,11 @@ rr_workspace_main () {
 			add_alias "${@:2}"
 			;;
 		"-r")
-			remove_alias ${@:2}
+			for alias_to_remove in "${@:2}"; do
+				remove_alias "$alias_to_remove"
+			done
+			set_print_aliases
+			save_workspace
 			;;
 		*)
 			cat $RR_WORKSPACE_DIR/help.txt
