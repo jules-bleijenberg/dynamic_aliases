@@ -55,7 +55,7 @@ rr_swap_array_items()
 
 swap_aliases () {
 	if [[ $# -lt 2 ]]; then
-		echo "Swap aliases requires 2 aliases as arguments"
+		echo "swap aliases requires 2 aliases as arguments"
 		return
 	fi
 	first_element=$1
@@ -83,12 +83,16 @@ edit_rr_file() {
 		# remove file if exists and empty
 		rm $RR_WORKSPACE_FILE
 	fi
-	load_aliases
+	load_aliases_pwd
 }
 
 add_alias()
 {
 	if [ $# -le 1 ]; then
+		return
+	fi
+	handle_directory_conflict
+	if [ $? -gt 0 ]; then
 		return
 	fi
 	if [[ "$@" =~ $ALIAS_REG_PATTERN ]]; then
@@ -100,7 +104,7 @@ add_alias()
 			rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
 		fi
 	else
-		printf "Failed to parse %s\n" "$@"
+		printf "failed to parse %s\n" "$@"
 		return
 	fi
 	set_print_aliases
@@ -174,7 +178,7 @@ load_aliases_from_file()
 			# 	rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
 			fi
 		else
-		printf "Failed to parse %s\n" "$line"
+		printf "failed to parse %s\n" "$line"
 		fi
 	done < "$2"
 }
@@ -196,24 +200,60 @@ load_aliases_from_pattern()
 	done
 }
 
-load_aliases()
+load_aliases_pwd()
 {
 	# check if there are commands stored in pwd dir
 	unset_aliases
 	# load commands from file
 	load_aliases_from_file rr_alias "$PWD/$RR_WORKSPACE_FILE"
-	rr_alias_folder=$(pwd)
+	rr_alias_folder=$PWD
 	# load commands from pattern files
 	load_aliases_from_pattern
 	# mapfile -t rr_array < <(cat $PWD/$RR_WORKSPACE_FILE)
 	set_print_aliases
 }
 
+handle_directory_conflict()
+{
+	if [ "$rr_alias_folder" == "$PWD" ]; then
+		return 0
+	fi
+	printf "PWD is not equal to the folder were aliases were loaded. Please choose how to resolve this conflict\n"
+	printf "y) Apply changes to $rr_alias_folder/$RR_WORKSPACE_FILE\n"
+	printf "l) Load aliases from and apply changes to $PWD/$RR_WORKSPACE_FILE\n"
+	printf "o) Apply changes and overwrite $PWD/$RR_WORKSPACE_FILE\n"
+	read -e -N 1 -p '>' user_input
+	# parse input for valid alias
+	if [ $? -gt 0 ]; then
+		return 1
+	fi
+	case $user_input in
+		"y")
+			;;
+		"l")
+			# works because it sets rr_alias_folder to pwd
+			load_aliases_pwd
+			;;
+		"o")
+			rr_alias_folder=$PWD
+			;;
+		*)
+			printf "Failed to resolve conflict\n"
+			return 1
+			;;
+	esac
+	return 0
+}
+
 remove_alias()
 {
+	handle_directory_conflict
+	if [ $? -gt 0 ]; then
+		return
+	fi
 	alias_index=$(rr_get_item_index rr_alias_keys "$1")
 	if [[ $alias_index -lt 0 ]]; then
-		printf "Alias '%s' not found\n" "$1"
+		printf "alias '%s' not found\n" "$1"
 		return
 	fi
 	new_rr_alias_keys=( )
@@ -232,21 +272,17 @@ remove_alias()
 
 save_workspace()
 {
-	# Assumes current directory is workspace
-	if [ "$rr_alias_folder" != "$(pwd)" ]; then
-		printf "Unable to save aliases, not in correct directory\n"
-		return
-	fi
-	if [ -s $PWD/$RR_WORKSPACE_FILE ]; then
-		rm $PWD/$RR_WORKSPACE_FILE
+	if [ -s $rr_alias_folder/$RR_WORKSPACE_FILE ]; then
+		rm $rr_alias_folder/$RR_WORKSPACE_FILE
 	fi
 	for (( i = 0; i < ${#rr_alias_keys[@]}; i++ )); do
-    printf "%s %s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}" >> $PWD/$RR_WORKSPACE_FILE
+    printf "%s %s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}" >> $rr_alias_folder/$RR_WORKSPACE_FILE
 	done
 }
 
 rr_workspace_main () {
 	if [ $# -eq 0 ]; then
+		load_aliases_pwd
 		return
 	fi
 	case $1 in
