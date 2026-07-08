@@ -1,7 +1,7 @@
 #! /usr/bin/bash
 
 # Global colors
-RR_RESET='\e[0m' #'\033[0;97m';
+RR_RESET='\e[0m'
 RR_GREEN='\033[0;92m'
 RR_BLUE='\033[0;34m'
 # Global veriables
