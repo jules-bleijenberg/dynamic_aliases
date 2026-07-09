@@ -1,5 +1,10 @@
 Add following to .bashrc or .zshrc
-```sh
+```
+. $HOME/.rerun_workspace/main.sh
+```
+
+Optional and recommended to add (requires zioxide and fzf)
+```
 rr_workspace_fzf()
 {
 	directory=""
