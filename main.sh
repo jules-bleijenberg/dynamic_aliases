@@ -40,16 +40,6 @@ rr_get_smallest_number() {
 	fi
 }
 
-# swap two alias commands
-rr_swap_array_items() {
-	local -n array=$1 
-	first_index=$2
-	second_index=$3
-	copy_elem="${array[$second_index]}"
-	array[$second_index]="${array[$first_index]}"
-	array[$first_index]="${copy_elem}"
-}
-
 rr_swap_aliases() {
 	if [[ $# -lt 2 ]]; then
 		echo "swap aliases requires 2 aliases as arguments"
@@ -66,10 +56,10 @@ rr_swap_aliases() {
 	if [ $first_element_index -eq $second_element_index ]; then
 		return
 	fi
-	rr_swap_array_items rr_alias_commands first_element_index second_element_index
-	# copy_elem="${rr_array[$second_element_index]}"
-	#	rr_array[$second_element_index]="${rr_array[$first_element_index]}"
-	#	rr_array[$first_element_index]="${copy_elem}"
+	# swap two alias commands
+	copy_elem="${rr_alias_commands[$second_element_index]}"
+	rr_alias_commands[$second_element_index]="${rr_alias_commands[$first_element_index]}"
+	rr_alias_commands[$first_element_index]="${copy_elem}"
 	rr_set_print_aliases
 	rr_save_workspace
 }
@@ -139,19 +129,14 @@ rr_load_aliases_from_file() {
 	local -n aliases="$1_keys"
 	local -n commands="$1_commands"
 	while IFS= read -r line; do
-		# ADD: Duplicate overwriting
 		if [[ "$line " =~ $ALIAS_REG_PATTERN ]]; then
-			# echo "read: ${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} "
 			alias_index=$(rr_get_item_index "$aliases_name" "${BASH_REMATCH[1]}")
 			if [ $alias_index -lt 0 -a "$1" == "rr_pattern_alias" ]; then
 				alias_index=$(rr_get_item_index "rr_alias_keys" "${BASH_REMATCH[1]}")
 			fi
-			#alias_index=-1
 			if [ $alias_index -lt 0 ]; then
 				aliases+=("${BASH_REMATCH[1]}")
 				commands+=("${BASH_REMATCH[2]}")
-			# else
-			# 	rr_alias_commands[alias_index]="${BASH_REMATCH[2]}"
 			fi
 		else
 		printf "failed to parse %s\n" "$line"
