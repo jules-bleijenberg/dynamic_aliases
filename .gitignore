@@ -2,3 +2,5 @@ data
 .backup
 update_help.sh
 workspaces
+info.txt
+patterns.json
