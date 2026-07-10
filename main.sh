@@ -5,7 +5,7 @@ RR_RESET='\e[0m'
 RR_GREEN='\033[0;92m'
 RR_BLUE='\033[0;34m'
 # Global veriables
-RR_WORKSPACE_DIR=$HOME/.dynamic_aliases
+RR_WORKSPACE_DIR="$HOME/.dynamic_aliases"
 RR_WORKSPACE_FILE=.workspace_commands
 RR_PATTERN_FILE=patterns.json
 ALIAS_REG_PATTERN="^([A-Za-z0-9_]+)\ (.+)$"

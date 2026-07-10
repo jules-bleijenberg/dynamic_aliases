@@ -18,8 +18,8 @@ RR_WORKSPACE_DIR=$HOME/wherever/I/am/now
 ```
 
 <h1>Supercharged</h1>
-
-Optional and recommended to add to .bashrc or .zshrc (requires zioxide and fzf)
+--- Requires zioxide and fzf ---
+Optional and higly recommended. Create a file called supercharged.sh. Add the contents below and source it in .bashrc or .zshrc (like done above with main.sh)
 
 ```
 rr_workspace_fzf()
