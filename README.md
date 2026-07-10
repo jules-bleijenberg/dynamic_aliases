@@ -1,3 +1,8 @@
+<h1>Git clone</h1>
+```
+git clone https://github.com/jules-bleijenberg/dynamic_aliases.git $HOME/.dynamic_aliases
+```
+
 <h1>Bare bones</h1>
 Add following to .bashrc or .zshrc
 ```
@@ -14,25 +19,25 @@ Optional and recommended to add to .bashrc or .zshrc (requires zioxide and fzf)
 ```
 rr_workspace_fzf()
 {
-	changed_directory=1
+	load_aliases=1
 	if [ $# -eq 0 ]; then
 		directory="$(zoxide query -i)"
 		if [ $? -gt 0 ]; then
 			return
 		fi
 		cd $directory
-		changed_directory=0
+		load_aliases=0
 	elif [ -d $1 ]; then
 		cd $1
-		changed_directory=0
+		load_aliases=0
 	elif [ ${1:0:1} != '-' ]; then
 		z $1
 		if [ $? -gt 0 ]; then
 			return
 		fi
-		changed_directory=0
+		load_aliases=0
 	fi
-	if [ $changed_directory ]; then
+	if [ $load_aliases ]; then
 		rr_workspace_main
 	elif [ "$1" == "-a" -a $# -eq 1 ]; then
 		rr_add_alias_from_history
