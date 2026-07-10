@@ -1,5 +1,8 @@
 <h1>Git clone</h1>
+
+```
 git clone https://github.com/jules-bleijenberg/dynamic_aliases.git "$HOME/.dynamic_aliases"
+```
 
 <h1>Bare bones</h1>
 Add following to .bashrc or .zshrc
