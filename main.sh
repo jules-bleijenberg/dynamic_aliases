@@ -5,7 +5,7 @@ RR_RESET='\e[0m'
 RR_GREEN='\033[0;92m'
 RR_BLUE='\033[0;34m'
 # Global veriables
-RR_WORKSPACE_DIR=$HOME/.rerun_workspace
+RR_WORKSPACE_DIR=$HOME/.dynamic_aliases
 RR_WORKSPACE_FILE=.workspace_commands
 RR_PATTERN_FILE=patterns.json
 ALIAS_REG_PATTERN="^([A-Za-z0-9_]+)\ (.+)$"
@@ -147,12 +147,17 @@ rr_load_aliases_from_file() {
 rr_load_aliases_from_pattern() {
 	i=0
 	while true; do
+		if [ ! -s "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE" ]; then
+			return
+		fi
 		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
 		# if file_pattern not found
 		if [ $? -ge 1 ]; then
 			break
 		fi
-		if [[ "$PWD" == $file_pattern ]]; then
+		# file_pattern=$(echo "$file_pattern" | sed "s/\$HOME/$HOME/")
+		file_pattern="${file_pattern/\$HOME/$HOME}"
+		if [[ $PWD == $file_pattern ]]; then
 			file=$(jq -er ".[$i].file" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
 			rr_load_aliases_from_file rr_pattern_alias "$RR_WORKSPACE_DIR/workspaces/$file"
 		fi
