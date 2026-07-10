@@ -1,21 +1,23 @@
 <h1>Git clone</h1>
-```
-git clone https://github.com/jules-bleijenberg/dynamic_aliases.git $HOME/.dynamic_aliases
-```
+git clone https://github.com/jules-bleijenberg/dynamic_aliases.git "$HOME/.dynamic_aliases"
 
 <h1>Bare bones</h1>
 Add following to .bashrc or .zshrc
+
 ```
-. $HOME/.rerun_workspace/main.sh
+source $HOME/.rerun_workspace/main.sh
 ```
 
 If you choose a different directory than $HOME/.dynamic_aliases add the following code
+
 ```
 RR_WORKSPACE_DIR=$HOME/wherever/I/am/now
 ```
 
 <h1>Supercharged</h1>
+
 Optional and recommended to add to .bashrc or .zshrc (requires zioxide and fzf)
+
 ```
 rr_workspace_fzf()
 {
