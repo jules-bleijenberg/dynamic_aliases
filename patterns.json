@@ -1,0 +1,6 @@
+[
+	{
+		"pattern": "$HOME/.dynamic_aliases",
+		"file": "tutorial"
+	}
+]

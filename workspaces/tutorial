@@ -1,0 +1,2 @@
+a $EDITOR "$HOME/.dynamic_aliases/patterns.json"
+s $EDITOR "$HOME/.dynamic_aliases/workspaces/tutorial"

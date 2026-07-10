@@ -145,11 +145,11 @@ rr_load_aliases_from_file() {
 }
 
 rr_load_aliases_from_pattern() {
+	if [ ! -s "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE" ]; then
+		return
+	fi
 	i=0
 	while true; do
-		if [ ! -s "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE" ]; then
-			return
-		fi
 		file_pattern=$(jq -er ".[$i].pattern" "$RR_WORKSPACE_DIR/$RR_PATTERN_FILE")
 		# if file_pattern not found
 		if [ $? -ge 1 ]; then
