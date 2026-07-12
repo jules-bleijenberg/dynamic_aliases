@@ -8,7 +8,7 @@ git clone https://github.com/jules-bleijenberg/dynamic_aliases.git "$HOME/.dynam
 Add following to .bashrc or .zshrc
 
 ```
-source $HOME/.rerun_workspace/main.sh
+source $HOME/.dynamic_aliases/main.sh
 ```
 
 If you choose a different directory than $HOME/.dynamic_aliases add the following code
