@@ -18,7 +18,7 @@ RR_WORKSPACE_DIR=$HOME/wherever/I/am/now
 ```
 
 <h1>Supercharged</h1>
---- Requires zioxide and fzf ---
+<strong>requires zioxide and fzf</strong><br>
 Optional and higly recommended. Create a file called supercharged.sh. Add the contents below and source it in .bashrc or .zshrc (like done above with main.sh)
 
 ```
