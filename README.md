@@ -1,7 +1,7 @@
 <h1>Git clone</h1>
 
 ```
-git clone https://github.com/jules-bleijenberg/dynamic_aliases.git $HOME/.dynamic_aliases && echo 'source $HOME/.dynamic_aliases/main.sh' >> .bashrc
+git clone https://github.com/jules-bleijenberg/dynamic_aliases.git ~/.dynamic_aliases && echo 'source $HOME/.dynamic_aliases/main.sh' >> ~/.bashrc
 ```
 
 If you choose a different directory than $HOME/.dynamic_aliases add the following code
