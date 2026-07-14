@@ -1,10 +1,10 @@
-<h1>Git clone</h1>
+<h1>Setup command</h1>
 
 ```
-git clone https://github.com/jules-bleijenberg/dynamic_aliases.git ~/.dynamic_aliases && echo 'source $HOME/.dynamic_aliases/main.sh' >> ~/.bashrc
+git clone https://github.com/jules-bleijenberg/dynamic_aliases.git ~/.dynamic_aliases && source $HOME/.dynamic_aliases/main.sh && echo 'source $HOME/.dynamic_aliases/main.sh' >> ~/.bashrc
 ```
 
-If you choose a different directory than $HOME/.dynamic_aliases add the following code
+If you choose a different directory than $HOME/.dynamic_aliases add the following code to .bashrc
 
 ```
 RR_WORKSPACE_DIR=$HOME/wherever/I/am/now
