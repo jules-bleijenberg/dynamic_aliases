@@ -1,14 +1,7 @@
 <h1>Git clone</h1>
 
 ```
-git clone https://github.com/jules-bleijenberg/dynamic_aliases.git "$HOME/.dynamic_aliases"
-```
-
-<h1>Bare bones</h1>
-Add following to .bashrc or .zshrc
-
-```
-source $HOME/.dynamic_aliases/main.sh
+git clone https://github.com/jules-bleijenberg/dynamic_aliases.git $HOME/.dynamic_aliases && source $HOME/.dynamic_aliases/main.sh
 ```
 
 If you choose a different directory than $HOME/.dynamic_aliases add the following code
@@ -19,7 +12,7 @@ RR_WORKSPACE_DIR=$HOME/wherever/I/am/now
 
 <h1>Supercharged</h1>
 <strong>requires zioxide and fzf</strong><br>
-Optional and higly recommended. Create a file called supercharged.sh. Add the contents below and source it in .bashrc or .zshrc (like done above with main.sh)
+Optional and higly recommended. Create a file called supercharged.sh. Add the contents below and source it in .bashrc (like done above with main.sh)
 
 ```
 rr_workspace_fzf()
