@@ -1,4 +1,4 @@
-#! /usr/bin/bash
+# #! /usr/bin/bash
 
 # Global colors
 RR_RESET='\e[0m'
@@ -82,7 +82,7 @@ rr_add_alias() {
 		return
 	fi
 	if [[ "$@" =~ $ALIAS_REG_PATTERN ]]; then
-		alias_index=$(rr_get_item_index "$rr_alias_keys" "${BASH_REMATCH[1]}")
+		alias_index=$(rr_get_item_index "rr_alias_keys" "${BASH_REMATCH[1]}")
 		if [ $alias_index -lt 0 ]; then
 			rr_alias_keys+=("${BASH_REMATCH[1]}")
 			rr_alias_commands+=("${BASH_REMATCH[2]}")
@@ -131,7 +131,7 @@ rr_load_aliases_from_file() {
 	while IFS= read -r line; do
 		if [[ "$line " =~ $ALIAS_REG_PATTERN ]]; then
 			alias_index=$(rr_get_item_index "$aliases_name" "${BASH_REMATCH[1]}")
-			if [ $alias_index -lt 0 -a "$1" == "rr_pattern_alias" ]; then
+			if [[ $alias_index -lt 0 && "$1" == "rr_pattern_alias" ]]; then
 				alias_index=$(rr_get_item_index "rr_alias_keys" "${BASH_REMATCH[1]}")
 			fi
 			if [ $alias_index -lt 0 ]; then
