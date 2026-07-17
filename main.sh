@@ -15,6 +15,7 @@ rr_alias_commands=()
 rr_pattern_alias_keys=()
 rr_pattern_alias_commands=()
 rr_alias_folder=""
+rr_set_alias_keys=( )
 
 # Get index of item in array
 rr_get_item_index() {
@@ -98,11 +99,8 @@ rr_add_alias() {
 }
 
 rr_unset_aliases() {
-	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
-		unalias "${rr_alias_keys[i]}"
-	done
-	for (( i=0; i<${#rr_pattern_alias_keys[@]}; i++ )); do
-		unalias "${rr_pattern_alias_keys[i]}"
+	for (( i=0; i<${#rr_set_alias_keys[@]}; i++ )); do
+		unalias "${rr_set_alias_keys[i]}"
 	done
 	rr_alias_keys=()
 	rr_alias_commands=()
@@ -129,17 +127,6 @@ rr_set_print_aliases() {
 		fi
 	done
 }
-
-# rr_set_print_aliases() {
-# 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
-# 		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
-# 		printf "$RR_GREEN%s) $RR_RESET%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
-# 	done
-# 	for (( i=0; i<${#rr_pattern_alias_keys[@]}; i++ )); do
-# 		alias "${rr_pattern_alias_keys[i]}=${rr_pattern_alias_commands[i]}"
-# 		printf "$RR_BLUE%s) $RR_RESET%s\n" "${rr_pattern_alias_keys[i]}" "${rr_pattern_alias_commands[i]}"
-# 	done
-# }
 
 rr_load_aliases_from_file() {
 	if [ ! -s $2 ]; then
