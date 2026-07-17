@@ -111,15 +111,35 @@ rr_unset_aliases() {
 }
 
 rr_set_print_aliases() {
+	rr_set_alias_keys=( )
 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
-		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
-		printf "$RR_GREEN%s) $RR_RESET%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+		alias_index=$(rr_get_item_index "rr_set_alias_keys" "${rr_alias_keys[i]}")
+		if [ $alias_index -lt 0 ]; then
+			alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
+			printf "$RR_GREEN%s) $RR_RESET%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+			rr_set_alias_keys+=("${rr_alias_keys[i]}")
+		fi
 	done
 	for (( i=0; i<${#rr_pattern_alias_keys[@]}; i++ )); do
-		alias "${rr_pattern_alias_keys[i]}=${rr_pattern_alias_commands[i]}"
-		printf "$RR_BLUE%s) $RR_RESET%s\n" "${rr_pattern_alias_keys[i]}" "${rr_pattern_alias_commands[i]}"
+		alias_index=$(rr_get_item_index "rr_set_alias_keys" "${rr_pattern_alias_keys[i]}")
+		if [ $alias_index -lt 0 ]; then
+			alias "${rr_pattern_alias_keys[i]}=${rr_pattern_alias_commands[i]}"
+			printf "$RR_BLUE%s) $RR_RESET%s\n" "${rr_pattern_alias_keys[i]}" "${rr_pattern_alias_commands[i]}"
+			rr_set_alias_keys+=("${rr_pattern_alias_keys[i]}")
+		fi
 	done
 }
+
+# rr_set_print_aliases() {
+# 	for (( i=0; i<${#rr_alias_keys[@]}; i++ )); do
+# 		alias "${rr_alias_keys[i]}=${rr_alias_commands[i]}"
+# 		printf "$RR_GREEN%s) $RR_RESET%s\n" "${rr_alias_keys[i]}" "${rr_alias_commands[i]}"
+# 	done
+# 	for (( i=0; i<${#rr_pattern_alias_keys[@]}; i++ )); do
+# 		alias "${rr_pattern_alias_keys[i]}=${rr_pattern_alias_commands[i]}"
+# 		printf "$RR_BLUE%s) $RR_RESET%s\n" "${rr_pattern_alias_keys[i]}" "${rr_pattern_alias_commands[i]}"
+# 	done
+# }
 
 rr_load_aliases_from_file() {
 	if [ ! -s $2 ]; then
@@ -130,16 +150,10 @@ rr_load_aliases_from_file() {
 	local -n commands="$1_commands"
 	while IFS= read -r line; do
 		if [[ "$line " =~ $ALIAS_REG_PATTERN ]]; then
-			alias_index=$(rr_get_item_index "$aliases_name" "${BASH_REMATCH[1]}")
-			if [[ $alias_index -lt 0 && "$1" == "rr_pattern_alias" ]]; then
-				alias_index=$(rr_get_item_index "rr_alias_keys" "${BASH_REMATCH[1]}")
-			fi
-			if [ $alias_index -lt 0 ]; then
-				aliases+=("${BASH_REMATCH[1]}")
-				commands+=("${BASH_REMATCH[2]}")
-			fi
+			aliases+=("${BASH_REMATCH[1]}")
+			commands+=("${BASH_REMATCH[2]}")
 		else
-		printf "failed to parse %s\n" "$line"
+			printf "failed to parse %s\n" "$line"
 		fi
 	done < "$2"
 }
@@ -209,19 +223,24 @@ rr_handle_directory_conflict() {
 }
 
 rr_remove_alias() {
-	rr_handle_directory_conflict
-	if [ $? -gt 0 ]; then
+	if [ $# -lt 1 ]; then
 		return
 	fi
-	alias_index=$(rr_get_item_index rr_alias_keys "$1")
-	if [[ $alias_index -lt 0 ]]; then
-		printf "alias '%s' not found\n" "$1"
+	rr_handle_directory_conflict
+	if [ $? -gt 0 ]; then
 		return
 	fi
 	new_rr_alias_keys=( )
 	new_rr_alias_commands=( )
 	for (( i = 0; i < ${#rr_alias_keys[@]}; i++ )); do
-		if [[ $i -ne $alias_index ]]; then
+		rr_should_add=0
+		for (( j = 1; j < $(($# + 1)); j++ )); do
+			if [[ "${rr_alias_keys[i]}" == "${!j}" ]]; then
+				rr_should_add=1
+				break
+			fi
+		done
+		if [ $rr_should_add -eq 0 ]; then
 			new_rr_alias_keys+=( "${rr_alias_keys[i]}" )
 			new_rr_alias_commands+=( "${rr_alias_commands[i]}" )
 		fi
@@ -230,6 +249,8 @@ rr_remove_alias() {
 	rr_alias_commands=("${new_rr_alias_commands[@]}")
 	unset new_rr_alias_keys
 	unset new_rr_alias_commands
+	rr_set_print_aliases
+	rr_save_workspace
 }
 
 rr_save_workspace() {
@@ -272,11 +293,7 @@ rr_workspace_main() {
 			rr_add_alias "${@:2}"
 			;;
 		"-r")
-			for alias_to_remove in "${@:2}"; do
-				rr_remove_alias "$alias_to_remove"
-			done
-			rr_set_print_aliases
-			rr_save_workspace
+			rr_remove_alias "${@:2}"
 			;;
 		"-h" | "--help")
 			rr_print_help
